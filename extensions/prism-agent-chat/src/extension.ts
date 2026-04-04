@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentClient } from './agentClient';
 import { ChatPanelProvider } from './chatPanel';
+import { FloatingChatPanel } from './floatingChat';
 
 let client: AgentClient;
 
@@ -13,8 +14,23 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(ChatPanelProvider.viewType, chatProvider),
   );
 
+  // Floating chat button in status bar
+  const statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right, 1000,
+  );
+  statusBarItem.text = '$(comment-discussion) PRISM Agent';
+  statusBarItem.tooltip = 'Open PRISM Agent Chat';
+  statusBarItem.command = 'prism.agent.openFloatingChat';
+  statusBarItem.backgroundColor = undefined;
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
+
   // Commands
   context.subscriptions.push(
+    vscode.commands.registerCommand('prism.agent.openFloatingChat', () => {
+      FloatingChatPanel.createOrShow(context.extensionUri, client);
+    }),
+
     vscode.commands.registerCommand('prism.agent.newChat', () => {
       client.disconnect();
       chatProvider.clearChat();
@@ -40,7 +56,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const selection = editor.document.getText(editor.selection);
       if (!selection) { return; }
       const fileName = editor.document.fileName.split('/').pop();
-      chatProvider.sendContextMessage(
+      FloatingChatPanel.createOrShow(context.extensionUri, client);
+      FloatingChatPanel.sendContextMessage(
         `Explain this code from ${fileName}:\n\`\`\`\n${selection}\n\`\`\``,
       );
     }),
@@ -49,7 +66,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const editor = vscode.window.activeTextEditor;
       if (!editor) { return; }
       const fileName = editor.document.fileName.split('/').pop();
-      chatProvider.sendContextMessage(
+      FloatingChatPanel.createOrShow(context.extensionUri, client);
+      FloatingChatPanel.sendContextMessage(
         `What does the file ${fileName} do? Here's its content:\n\`\`\`\n${editor.document.getText()}\n\`\`\``,
       );
     }),

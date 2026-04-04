@@ -286,4 +286,15 @@ elif [[ "${OS_NAME}" == "windows" ]]; then
   sed -i 's|Microsoft Corporation|MARC27|' build/win32/code.iss
 fi
 
+# {{{ PRISM extensions — copy into built-in extensions
+echo "Installing PRISM extensions..."
+for ext_dir in ../extensions/prism-*/; do
+  ext_name=$( basename "${ext_dir}" )
+  if [[ -d "${ext_dir}" ]]; then
+    cp -r "${ext_dir}" "extensions/${ext_name}"
+    echo "  + ${ext_name}"
+  fi
+done
+# }}}
+
 cd ..
