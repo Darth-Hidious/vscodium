@@ -1,0 +1,46 @@
+{
+  "name": "prism-welcome",
+  "displayName": "PRISM Welcome",
+  "description": "Inspiring welcome tab with NASA/ESA imagery, clock, and quick actions — your daily dose of wonder.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "prism.welcome.show",
+        "title": "PRISM: Show Welcome"
+      }
+    ],
+    "configuration": {
+      "title": "PRISM Welcome",
+      "properties": {
+        "prism.welcome.showOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the welcome tab when PRISM starts"
+        },
+        "prism.welcome.imageSource": {
+          "type": "string",
+          "enum": ["nasa-apod", "nasa-epic", "esa"],
+          "default": "nasa-apod",
+          "description": "Image source for the welcome tab"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.7.0"
+  }
+}
