@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+    <defs>
+        <!-- Background Vignette -->
+        <radialGradient id="vignette" cx="50%" cy="50%" r="50%">
+            <stop offset="50%" stop-color="#000" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#000" stop-opacity="0.4"/>
+        </radialGradient>
+
+        <!-- Glass Prism Material -->
+        <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+            <stop offset="50%" stop-color="#c8e6ff" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1"/>
+        </linearGradient>
+
+        <!-- Internal Light Dispersion Cone -->
+        <linearGradient id="internalGrad" x1="130" y1="246" x2="238" y2="246" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1"/>
+        </linearGradient>
+
+        <!-- Optical Bloom Filters -->
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
+            <feMerge>
+                <feMergeNode in="blur2" />
+                <feMergeNode in="blur1" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+        <filter id="strong-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
+            <feMerge>
+                <feMergeNode in="blur2" />
+                <feMergeNode in="blur1" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+
+        <style>
+            /* Base reset */
+            * { transform-origin: center; }
+
+            /* Phase 1: Incoming White Beam */
+            .beam-in {
+                stroke-dasharray: 200;
+                animation: inBeam 4s infinite cubic-bezier(0.3, 0, 0.2, 1);
+            }
+            @keyframes inBeam {
+                0% { stroke-dashoffset: 200; opacity: 0; }
+                5% { opacity: 1; }
+                30%, 95% { stroke-dashoffset: 0; opacity: 1; }
+                100% { opacity: 0; stroke-dashoffset: 0; }
+            }
+
+            /* Phase 2: Prism Activation Flash */
+            .prism-shape {
+                animation: prismPulse 4s infinite ease-out;
+            }
+            @keyframes prismPulse {
+                0%, 25% { fill: url(#glass); stroke: rgba(255,255,255,0.2); filter: none; opacity: 0; }
+                26% { opacity: 1; }
+                30% { fill: rgba(200,230,255,0.25); stroke: rgba(255,255,255,0.9); filter: url(#glow); opacity: 1; }
+                40%, 95% { fill: url(#glass); stroke: rgba(255,255,255,0.4); filter: none; opacity: 1; }
+                100% { fill: url(#glass); stroke: rgba(255,255,255,0.2); opacity: 0; }
+            }
+
+            /* Phase 2.5: Internal Light Dispersion */
+            .internal-cone {
+                animation: intDisp 4s infinite ease-out;
+            }
+            @keyframes intDisp {
+                0%, 29% { opacity: 0; }
+                31% { opacity: 0.7; filter: url(#glow); }
+                40%, 95% { opacity: 0.15; filter: none; }
+                100% { opacity: 0; }
+            }
+
+            /* Phase 3: Spectral Fanning out */
+            .spec-beam {
+                stroke-linecap: butt;
+                mix-blend-mode: screen;
+            }
+            /* Explicit stagger generation for perfect sync without animation-delay bugs */
+            .s-0 { animation: spec0 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-1 { animation: spec1 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-2 { animation: spec2 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-3 { animation: spec3 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-4 { animation: spec4 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-5 { animation: spec5 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-6 { animation: spec6 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+            .s-7 { animation: spec7 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+
+            @keyframes spec0 { 0%, 45% { stroke-dashoffset: 360; opacity: 0; } 46% { opacity: 1; } 70%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec1 { 0%, 47% { stroke-dashoffset: 360; opacity: 0; } 48% { opacity: 1; } 72%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec2 { 0%, 49% { stroke-dashoffset: 360; opacity: 0; } 50% { opacity: 1; } 74%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec3 { 0%, 51% { stroke-dashoffset: 360; opacity: 0; } 52% { opacity: 1; } 76%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec4 { 0%, 53% { stroke-dashoffset: 360; opacity: 0; } 54% { opacity: 1; } 78%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec5 { 0%, 55% { stroke-dashoffset: 360; opacity: 0; } 56% { opacity: 1; } 80%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec6 { 0%, 57% { stroke-dashoffset: 360; opacity: 0; } 58% { opacity: 1; } 82%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+            @keyframes spec7 { 0%, 59% { stroke-dashoffset: 360; opacity: 0; } 60% { opacity: 1; } 84%, 95% { stroke-dashoffset: 0; opacity: 1; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+
+            /* Phase 4: Travelling Highlight Shimmer */
+            .sh-0 { animation: shim0 4s infinite linear; }
+            .sh-1 { animation: shim1 4s infinite linear; }
+            .sh-2 { animation: shim2 4s infinite linear; }
+            .sh-3 { animation: shim3 4s infinite linear; }
+            .sh-4 { animation: shim4 4s infinite linear; }
+            .sh-5 { animation: shim5 4s infinite linear; }
+            .sh-6 { animation: shim6 4s infinite linear; }
+            .sh-7 { animation: shim7 4s infinite linear; }
+
+            @keyframes shim0 { 0%, 70% { stroke-dashoffset: 360; opacity: 0; } 71% { opacity: 0.8; } 82% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim1 { 0%, 71% { stroke-dashoffset: 360; opacity: 0; } 72% { opacity: 0.8; } 83% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim2 { 0%, 72% { stroke-dashoffset: 360; opacity: 0; } 73% { opacity: 0.8; } 84% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim3 { 0%, 73% { stroke-dashoffset: 360; opacity: 0; } 74% { opacity: 0.8; } 85% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim4 { 0%, 74% { stroke-dashoffset: 360; opacity: 0; } 75% { opacity: 0.8; } 86% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim5 { 0%, 75% { stroke-dashoffset: 360; opacity: 0; } 76% { opacity: 0.8; } 87% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim6 { 0%, 76% { stroke-dashoffset: 360; opacity: 0; } 77% { opacity: 0.8; } 88% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+            @keyframes shim7 { 0%, 77% { stroke-dashoffset: 360; opacity: 0; } 78% { opacity: 0.8; } 89% { stroke-dashoffset: -50; opacity: 0; } 100% { opacity: 0; } }
+
+            /* Graceful degradation for tiny icon sizes */
+            @media (max-width: 64px) {
+                * { animation: none !important; stroke-dashoffset: 0 !important; opacity: 1 !important; }
+                .shimmer-beam, .internal-cone { display: none; }
+                .prism-shape { fill: url(#glass) !important; stroke: rgba(255,255,255,0.4) !important; }
+            }
+        </style>
+    </defs>
+
+    <!-- Transparent / Vignette Context Layer -->
+    <rect width="100%" height="100%" fill="transparent" />
+
+    <!-- 1. Incoming Light Beam -->
+    <path class="beam-in" d="M -20,246 L 130.4,246" stroke="#FFFFFF" stroke-width="2.5" filter="url(#strong-glow)" />
+
+    <!-- 2. The Prism -->
+    <polygon class="prism-shape" points="180,160 90,316 270,316" stroke-width="1.5" stroke-linejoin="round" />
+
+    <!-- 3. Internal Dispersion Cone -->
+    <polygon class="internal-cone" points="130.4,246 221.5,232 237.7,260" fill="url(#internalGrad)" style="mix-blend-mode: screen;" />
+
+    <!-- 4. Spectral Beams (Red to Violet to match physical dispersion & Dark Side Cover) -->
+    <g stroke-width="3.5" stroke-dasharray="360" filter="url(#glow)">
+        <path class="spec-beam s-0" stroke="#FF0000" d="M221.5,232 L520,127.5" />
+        <path class="spec-beam s-1" stroke="#FF8C00" d="M223.8,236 L520,162.5" />
+        <path class="spec-beam s-2" stroke="#FFD700" d="M226.2,240 L520,197.5" />
+        <path class="spec-beam s-3" stroke="#00FF00" d="M228.5,244 L520,232.5" />
+        <path class="spec-beam s-4" stroke="#00BFFF" d="M230.8,248 L520,267.5" />
+        <path class="spec-beam s-5" stroke="#0000FF" d="M233.1,252 L520,302.5" />
+        <path class="spec-beam s-6" stroke="#4B0082" d="M235.4,256 L520,337.5" />
+        <path class="spec-beam s-7" stroke="#8B00FF" d="M237.7,260 L520,372.5" />
+    </g>
+
+    <!-- 5. Shimmer Overlay -->
+    <g stroke-width="1.5" stroke="#FFFFFF" stroke-linecap="round" stroke-dasharray="40 360" filter="url(#strong-glow)">
+        <path class="shimmer-beam sh-0" d="M221.5,232 L520,127.5" />
+        <path class="shimmer-beam sh-1" d="M223.8,236 L520,162.5" />
+        <path class="shimmer-beam sh-2" d="M226.2,240 L520,197.5" />
+        <path class="shimmer-beam sh-3" d="M228.5,244 L520,232.5" />
+        <path class="shimmer-beam sh-4" d="M230.8,248 L520,267.5" />
+        <path class="shimmer-beam sh-5" d="M233.1,252 L520,302.5" />
+        <path class="shimmer-beam sh-6" d="M235.4,256 L520,337.5" />
+        <path class="shimmer-beam sh-7" d="M237.7,260 L520,372.5" />
+    </g>
+
+    <!-- Overlay Vignette -->
+    <rect width="100%" height="100%" fill="url(#vignette)" pointer-events="none" />
+</svg>
