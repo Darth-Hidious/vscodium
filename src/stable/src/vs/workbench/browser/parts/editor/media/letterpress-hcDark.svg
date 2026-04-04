@@ -2,7 +2,7 @@
     <defs>
         <radialGradient id="vignette" cx="55%" cy="48%" r="70%">
             <stop offset="60%" stop-color="#000" stop-opacity="0"/>
-            <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#000" stop-opacity="0.35"/>
         </radialGradient>
 
         <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -37,8 +37,7 @@
         </filter>
     </defs>
 
-    <!-- Baked Dark Background -->
-    <rect width="512" height="512" fill="#0D0E15" rx="128" />
+    <rect width="100%" height="100%" fill="transparent" />
 
     <!-- Incoming Light Beam -->
     <path d="M -20,246 L 130.4,246" stroke="#FFFFFF" stroke-width="2.5" filter="url(#strong-glow)" />
