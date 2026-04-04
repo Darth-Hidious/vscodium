@@ -1,0 +1,48 @@
+{
+  "name": "prism-auth",
+  "displayName": "PRISM Authentication",
+  "description": "Sign in to MARC27 Platform — device-flow OAuth for accessing marketplace, billing, and mesh services.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "prism.auth.login",
+        "title": "PRISM: Sign In to MARC27"
+      },
+      {
+        "command": "prism.auth.logout",
+        "title": "PRISM: Sign Out"
+      },
+      {
+        "command": "prism.auth.status",
+        "title": "PRISM: Account Status"
+      }
+    ],
+    "configuration": {
+      "title": "PRISM Authentication",
+      "properties": {
+        "prism.auth.platformUrl": {
+          "type": "string",
+          "default": "https://platform.marc27.com",
+          "description": "MARC27 Platform URL for authentication"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.7.0"
+  }
+}
