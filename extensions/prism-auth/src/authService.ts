@@ -1,6 +1,4 @@
 import * as vscode from 'vscode';
-import * as https from 'https';
-import * as http from 'http';
 
 export interface AuthSession {
   accessToken: string;
@@ -11,15 +9,31 @@ export interface AuthSession {
   expiresAt: number;
 }
 
+interface DeviceCodeResponse {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
+}
+
+interface TokenResponse {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: string;
+}
+
+interface UserInfoResponse {
+  username?: string;
+  name?: string;
+  email?: string;
+  org?: { name: string };
+}
+
 /**
  * MARC27 Platform authentication using device-flow OAuth.
  * Same flow as `prism login` in the CLI (prism-client crate).
- *
- * Flow:
- * 1. POST /oauth/device/code → get device_code + user_code + verification_uri
- * 2. Show user the code and open browser to verification_uri
- * 3. Poll POST /oauth/token until user completes auth
- * 4. Store tokens in VS Code SecretStorage
  */
 export class AuthService {
   private static readonly SESSION_KEY = 'prism.auth.session';
@@ -36,7 +50,6 @@ export class AuthService {
 
   getSession(): AuthSession | null {
     if (this.session && this.session.expiresAt < Date.now()) {
-      // Token expired — clear it
       this.session = null;
       this.saveSession();
     }
@@ -49,19 +62,17 @@ export class AuthService {
 
     try {
       // Step 1: Request device code
-      const deviceResp = await this.post(`${platformUrl}/oauth/device/code`, {
+      const deviceResp = await this.doPost<DeviceCodeResponse>(`${platformUrl}/oauth/device/code`, {
         client_id: 'prism-desktop',
         scope: 'read write marketplace mesh billing',
       });
 
-      const { device_code, user_code, verification_uri, expires_in, interval } = deviceResp;
-
       // Step 2: Show code to user + open browser
-      const opened = await vscode.env.openExternal(vscode.Uri.parse(verification_uri));
+      const opened = await vscode.env.openExternal(vscode.Uri.parse(deviceResp.verification_uri));
 
       const action = await vscode.window.showInformationMessage(
-        `Enter code: ${user_code}`,
-        { modal: true, detail: `Your sign-in code is:\n\n${user_code}\n\n${opened ? 'A browser window has opened.' : 'Go to: ' + verification_uri}\nEnter the code above to complete sign-in.` },
+        `Enter code: ${deviceResp.user_code}`,
+        { modal: true, detail: `Your sign-in code is:\n\n${deviceResp.user_code}\n\n${opened ? 'A browser window has opened.' : 'Go to: ' + deviceResp.verification_uri}\nEnter the code above to complete sign-in.` },
         'Done',
         'Cancel',
       );
@@ -72,21 +83,23 @@ export class AuthService {
       await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: 'Signing in to MARC27...' },
         async () => {
-          const pollInterval = (interval || 5) * 1000;
-          const deadline = Date.now() + (expires_in || 900) * 1000;
+          const pollInterval = (deviceResp.interval || 5) * 1000;
+          const deadline = Date.now() + (deviceResp.expires_in || 900) * 1000;
 
           while (Date.now() < deadline) {
             await sleep(pollInterval);
             try {
-              const tokenResp = await this.post(`${platformUrl}/oauth/token`, {
+              const tokenResp = await this.doPost<TokenResponse>(`${platformUrl}/oauth/token`, {
                 grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
                 client_id: 'prism-desktop',
-                device_code,
+                device_code: deviceResp.device_code,
               });
 
               if (tokenResp.access_token) {
-                // Step 4: Get user info
-                const userInfo = await this.get(`${platformUrl}/api/v1/me`, tokenResp.access_token);
+                const userInfo = await this.doGet<UserInfoResponse>(
+                  `${platformUrl}/api/v1/me`,
+                  tokenResp.access_token,
+                );
 
                 this.session = {
                   accessToken: tokenResp.access_token,
@@ -103,7 +116,6 @@ export class AuthService {
               }
             } catch (e: unknown) {
               const err = e as { error?: string };
-              // "authorization_pending" is expected — keep polling
               if (err.error === 'authorization_pending' || err.error === 'slow_down') {
                 continue;
               }
@@ -143,72 +155,26 @@ export class AuthService {
     }
   }
 
-  private post(url: string, body: Record<string, string>): Promise<Record<string, unknown>> {
-    return new Promise((resolve, reject) => {
-      const data = JSON.stringify(body);
-      const parsed = new URL(url);
-      const mod = parsed.protocol === 'https:' ? https : http;
-
-      const req = mod.request({
-        hostname: parsed.hostname,
-        port: parsed.port,
-        path: parsed.pathname,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data),
-          'User-Agent': 'PRISM-Desktop/0.1.0',
-        },
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk: Buffer) => { body += chunk; });
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(body);
-            if (res.statusCode && res.statusCode >= 400) {
-              reject(json);
-            } else {
-              resolve(json);
-            }
-          } catch {
-            reject(new Error(`Invalid response: ${body.slice(0, 200)}`));
-          }
-        });
-      });
-      req.on('error', reject);
-      req.write(data);
-      req.end();
+  private async doPost<T>(url: string, body: Record<string, unknown>): Promise<T> {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'PRISM/0.1.0' },
+      body: JSON.stringify(body),
     });
+    const json = await resp.json();
+    if (!resp.ok) { throw json; }
+    return json as T;
   }
 
-  private get(url: string, token: string): Promise<Record<string, unknown>> {
-    return new Promise((resolve, reject) => {
-      const parsed = new URL(url);
-      const mod = parsed.protocol === 'https:' ? https : http;
-
-      const req = mod.request({
-        hostname: parsed.hostname,
-        port: parsed.port,
-        path: parsed.pathname,
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'PRISM-Desktop/0.1.0',
-        },
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk: Buffer) => { body += chunk; });
-        res.on('end', () => {
-          try { resolve(JSON.parse(body)); }
-          catch { reject(new Error(`Invalid response: ${body.slice(0, 200)}`)); }
-        });
-      });
-      req.on('error', reject);
-      req.end();
+  private async doGet<T>(url: string, token: string): Promise<T> {
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'PRISM/0.1.0' },
     });
+    return await resp.json() as T;
   }
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => globalThis.setTimeout(r, ms));
 }

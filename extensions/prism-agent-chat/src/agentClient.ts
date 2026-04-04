@@ -3,13 +3,14 @@ import type { AgentEvent, ConnectionState } from './types';
 
 /**
  * WebSocket client that connects to the PRISM agent server.
- * Receives streaming agent events and sends user commands.
+ * Uses vscode's built-in fetch for HTTP, and raw TCP isn't needed —
+ * we poll via HTTP SSE or use the VS Code proposed API for WebSocket.
+ * For now, uses a simple HTTP polling approach that works everywhere.
  */
 export class AgentClient {
-  private ws: WebSocket | null = null;
   private _state: ConnectionState = 'disconnected';
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectDelay = 1000;
+  private pollTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+  private sessionId = '';
 
   private readonly _onEvent = new vscode.EventEmitter<AgentEvent>();
   readonly onEvent = this._onEvent.event;
@@ -25,87 +26,62 @@ export class AgentClient {
     if (this._state === 'connecting' || this._state === 'connected') {
       return;
     }
-
-    const config = vscode.workspace.getConfiguration('prism.agent');
-    const url = config.get<string>('serverUrl', 'ws://127.0.0.1:3100/ws/agent');
-
     this.setState('connecting');
 
-    try {
-      this.ws = new WebSocket(url);
+    const config = vscode.workspace.getConfiguration('prism.agent');
+    const serverUrl = config.get<string>('serverUrl', 'http://127.0.0.1:3100');
+    const autoApprove = config.get<boolean>('autoApprove', false);
 
-      this.ws.onopen = () => {
+    // Init session
+    this.doPost(`${serverUrl}/api/agent/init`, { auto_approve: autoApprove })
+      .then((resp: Record<string, unknown>) => {
+        this.sessionId = resp.session_id as string || '';
         this.setState('connected');
-        this.reconnectDelay = 1000;
-
-        // Send init
-        const autoApprove = config.get<boolean>('autoApprove', false);
-        const model = config.get<string>('model', '');
-        this.send({
-          jsonrpc: '2.0',
-          method: 'init',
-          params: { auto_approve: autoApprove, ...(model ? { model } : {}) },
-          id: 1,
-        });
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(String(event.data));
-          // JSON-RPC notification (no id) = agent event
-          if (data.method && !('id' in data)) {
-            this._onEvent.fire(this.parseEvent(data));
-          }
-        } catch {
-          // Ignore malformed messages
-        }
-      };
-
-      this.ws.onclose = () => {
-        this.setState('disconnected');
-        this.scheduleReconnect();
-      };
-
-      this.ws.onerror = () => {
+      })
+      .catch(() => {
         this.setState('error');
-        this.ws?.close();
-      };
-    } catch {
-      this.setState('error');
-      this.scheduleReconnect();
-    }
+      });
   }
 
   disconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
+    if (this.pollTimer) {
+      globalThis.clearTimeout(this.pollTimer);
+      this.pollTimer = null;
     }
-    this.ws?.close();
-    this.ws = null;
+    this.sessionId = '';
     this.setState('disconnected');
   }
 
   sendMessage(text: string): void {
-    this.send({
-      jsonrpc: '2.0',
-      method: 'input.message',
-      params: { text },
+    const config = vscode.workspace.getConfiguration('prism.agent');
+    const serverUrl = config.get<string>('serverUrl', 'http://127.0.0.1:3100');
+
+    this.doPost(`${serverUrl}/api/agent/message`, {
+      session_id: this.sessionId,
+      text,
+    }).then((resp: Record<string, unknown>) => {
+      const events = resp.events as AgentEvent[] | undefined;
+      if (events) {
+        for (const event of events) {
+          this._onEvent.fire(event);
+        }
+      }
+    }).catch(() => {
+      this._onEvent.fire({ type: 'error', message: 'Failed to send message' });
     });
   }
 
   sendApproval(callId: string, approved: boolean): void {
-    this.send({
-      jsonrpc: '2.0',
-      method: 'input.approval',
-      params: { call_id: callId, approved },
-    });
-  }
+    const config = vscode.workspace.getConfiguration('prism.agent');
+    const serverUrl = config.get<string>('serverUrl', 'http://127.0.0.1:3100');
 
-  private send(msg: Record<string, unknown>): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
-    }
+    this.doPost(`${serverUrl}/api/agent/approval`, {
+      session_id: this.sessionId,
+      call_id: callId,
+      approved,
+    }).catch(() => {
+      // silently fail
+    });
   }
 
   private setState(state: ConnectionState): void {
@@ -115,31 +91,16 @@ export class AgentClient {
     }
   }
 
-  private scheduleReconnect(): void {
-    if (this.reconnectTimer) { return; }
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null;
-      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
-      this.connect();
-    }, this.reconnectDelay);
-  }
-
-  private parseEvent(data: { method: string; params?: Record<string, unknown> }): AgentEvent {
-    const p = data.params ?? {};
-    // Map JSON-RPC method names to our event types
-    const methodMap: Record<string, string> = {
-      'ui.text.delta': 'text.delta',
-      'ui.text.flush': 'text.flush',
-      'ui.tool.start': 'tool.start',
-      'ui.tool.result': 'tool.result',
-      'ui.tool.approval': 'tool.approval',
-      'ui.plan': 'plan',
-      'ui.cost': 'cost',
-      'ui.turn.complete': 'turn.complete',
-      'ui.error': 'error',
-    };
-    const type = methodMap[data.method] ?? data.method;
-    return { type, ...p } as unknown as AgentEvent;
+  private async doPost(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    return await resp.json() as Record<string, unknown>;
   }
 
   dispose(): void {

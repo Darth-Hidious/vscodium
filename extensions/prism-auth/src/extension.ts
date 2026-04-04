@@ -66,7 +66,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Prompt login on first startup if not authenticated
   if (!authService.getSession()) {
-    setTimeout(async () => {
+    globalThis.setTimeout(async () => {
       const action = await vscode.window.showInformationMessage(
         'Sign in to MARC27 to access the marketplace, mesh computing, and billing.',
         'Sign In',

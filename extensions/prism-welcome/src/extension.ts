@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const config = vscode.workspace.getConfiguration('prism.welcome');
   if (config.get<boolean>('showOnStartup', true)) {
     // Small delay so it doesn't race with window restoration
-    setTimeout(() => WelcomePanel.createOrShow(context.extensionUri), 500);
+    globalThis.setTimeout(() => WelcomePanel.createOrShow(context.extensionUri), 500);
   }
 }
 

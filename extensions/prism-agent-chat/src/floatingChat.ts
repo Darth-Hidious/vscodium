@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AgentClient } from './agentClient';
-import type { AgentEvent } from './types';
+import type { AgentEvent, ConnectionState } from './types';
 
 /**
  * Full-canvas chat panel that opens as an editor tab.
@@ -93,10 +93,10 @@ export class FloatingChatPanel {
 
     // Forward agent events to webview
     this.client.onEvent((event: AgentEvent) => this.postToWebview({ type: 'agent-event', event }));
-    this.client.onStateChange((state) => this.postToWebview({ type: 'connection-state', state }));
+    this.client.onStateChange((state: ConnectionState) => this.postToWebview({ type: 'connection-state', state }));
 
     // Handle messages from webview
-    panel.webview.onDidReceiveMessage((msg) => {
+    panel.webview.onDidReceiveMessage((msg: any) => {
       switch (msg.type) {
         case 'send-message':
           this.client.sendMessage(msg.text);

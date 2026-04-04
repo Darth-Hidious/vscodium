@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentClient } from './agentClient';
 import type { AgentEvent, ConnectionState } from './types';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * WebView-based chat panel that renders agent conversations.
@@ -18,8 +19,8 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     this.client = client;
 
     // Forward agent events to webview
-    this.client.onEvent((event) => this.postToWebview({ type: 'agent-event', event }));
-    this.client.onStateChange((state) => this.postToWebview({ type: 'connection-state', state }));
+    this.client.onEvent((event: AgentEvent) => this.postToWebview({ type: 'agent-event', event }));
+    this.client.onStateChange((state: ConnectionState) => this.postToWebview({ type: 'connection-state', state }));
   }
 
   resolveWebviewView(
@@ -37,7 +38,7 @@ export class ChatPanelProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.getHtml(webviewView.webview);
 
     // Handle messages from webview
-    webviewView.webview.onDidReceiveMessage((msg) => {
+    webviewView.webview.onDidReceiveMessage((msg: any) => {
       switch (msg.type) {
         case 'send-message':
           this.client.sendMessage(msg.text);
