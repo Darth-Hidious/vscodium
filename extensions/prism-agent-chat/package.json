@@ -1,0 +1,135 @@
+{
+  "name": "prism-agent-chat",
+  "displayName": "PRISM Agent Chat",
+  "description": "AI agent conversation panel for PRISM Desktop — chat with the PRISM materials science agent, approve tool calls, review plans.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Chat"
+  ],
+  "keywords": [
+    "prism",
+    "marc27",
+    "materials science",
+    "ai agent",
+    "chat"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "prism-agent",
+          "title": "PRISM Agent",
+          "icon": "media/prism-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "prism-agent": [
+        {
+          "type": "webview",
+          "id": "prism.agentChat",
+          "name": "Agent Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "prism.agent.newChat",
+        "title": "PRISM: New Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "prism.agent.clearChat",
+        "title": "PRISM: Clear Chat",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "prism.agent.toggleAutoApprove",
+        "title": "PRISM: Toggle Auto-Approve"
+      },
+      {
+        "command": "prism.agent.askAboutSelection",
+        "title": "PRISM: Ask Agent About Selection"
+      },
+      {
+        "command": "prism.agent.askAboutFile",
+        "title": "PRISM: Ask Agent About This File"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "prism.agent.newChat",
+          "when": "view == prism.agentChat",
+          "group": "navigation"
+        },
+        {
+          "command": "prism.agent.clearChat",
+          "when": "view == prism.agentChat",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "prism.agent.askAboutSelection",
+          "when": "editorHasSelection",
+          "group": "prism"
+        },
+        {
+          "command": "prism.agent.askAboutFile",
+          "group": "prism"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PRISM Agent",
+      "properties": {
+        "prism.agent.serverUrl": {
+          "type": "string",
+          "default": "ws://127.0.0.1:3100/ws/agent",
+          "description": "WebSocket URL for the PRISM agent server"
+        },
+        "prism.agent.autoApprove": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically approve all tool calls without prompting"
+        },
+        "prism.agent.model": {
+          "type": "string",
+          "default": "",
+          "description": "LLM model override (empty = use server default)"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "prism.agent.newChat",
+        "key": "ctrl+shift+p",
+        "mac": "cmd+shift+p",
+        "when": "view == prism.agentChat"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
