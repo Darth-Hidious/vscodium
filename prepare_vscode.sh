@@ -286,6 +286,24 @@ elif [[ "${OS_NAME}" == "windows" ]]; then
   sed -i 's|Microsoft Corporation|MARC27|' build/win32/code.iss
 fi
 
+# {{{ PRISM core — native workbench contributions
+echo "Installing PRISM core contributions..."
+if [[ -d "../src/stable/src/vs/workbench/contrib/prism" ]]; then
+  cp -r "../src/stable/src/vs/workbench/contrib/prism" "src/vs/workbench/contrib/prism"
+  echo "  + prism core (auth, chat)"
+fi
+
+# Wire PRISM into workbench main
+if ! grep -q "contrib/prism" "src/vs/workbench/workbench.common.main.ts"; then
+  sed -i.bak "/contrib\/authentication\/browser\/authentication.contribution.js/a\\
+\\
+// PRISM — MARC27 Platform\\
+import './contrib/prism/browser/prism.contribution.js';" "src/vs/workbench/workbench.common.main.ts"
+  rm -f "src/vs/workbench/workbench.common.main.ts.bak"
+  echo "  + wired into workbench.common.main.ts"
+fi
+# }}}
+
 # {{{ PRISM extensions — copy into built-in extensions
 echo "Installing PRISM extensions..."
 for ext_dir in ../extensions/prism-*/; do

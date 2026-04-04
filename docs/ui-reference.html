@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRISM Desktop — UI Reference Map</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ============ TITLE BAR ============ */
+    #title-bar {
+      height: 38px;
+      background: #181825;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid #313244;
+      flex-shrink: 0;
+      -webkit-app-region: drag;
+    }
+    #title-bar .traffic-lights {
+      display: flex;
+      gap: 8px;
+      margin-right: 16px;
+    }
+    #title-bar .dot {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    #title-bar .dot.red { background: #f38ba8; }
+    #title-bar .dot.yellow { background: #f9e2af; }
+    #title-bar .dot.green { background: #a6e3a1; }
+    #title-bar .title-text {
+      flex: 1; text-align: center; font-size: 12px; color: #6c7086;
+    }
+    .label {
+      position: absolute;
+      background: #f38ba8;
+      color: #1e1e2e;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    .label.blue { background: #89b4fa; }
+    .label.green { background: #a6e3a1; }
+    .label.yellow { background: #f9e2af; }
+    .label.mauve { background: #cba6f7; }
+    .label.peach { background: #fab387; }
+    .label.teal { background: #94e2d5; }
+    .label.pink { background: #f5c2e7; }
+
+    /* ============ MAIN LAYOUT ============ */
+    #main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ============ ACTIVITY BAR ============ */
+    #activity-bar {
+      width: 48px;
+      background: #181825;
+      border-right: 1px solid #313244;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 4px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .ab-icon {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+      font-size: 18px;
+      cursor: pointer;
+      color: #6c7086;
+      position: relative;
+    }
+    .ab-icon:hover { color: #cdd6f4; background: #313244; }
+    .ab-icon.active {
+      color: #cdd6f4;
+      border-left: 2px solid #89b4fa;
+    }
+    .ab-spacer { flex: 1; }
+
+    /* ============ PRIMARY SIDEBAR ============ */
+    #sidebar-primary {
+      width: 240px;
+      background: #1e1e2e;
+      border-right: 1px solid #313244;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .sidebar-header {
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6c7086;
+      border-bottom: 1px solid #313244;
+    }
+    .tree-item {
+      padding: 4px 12px 4px 24px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tree-item:hover { background: #313244; }
+    .tree-item .icon { opacity: 0.6; }
+    .tree-group {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #a6adc8;
+      cursor: pointer;
+    }
+
+    /* ============ EDITOR AREA ============ */
+    #editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      min-width: 0;
+    }
+
+    /* Tab Bar */
+    #tab-bar {
+      height: 36px;
+      background: #181825;
+      display: flex;
+      align-items: stretch;
+      border-bottom: 1px solid #313244;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .tab {
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      border-right: 1px solid #313244;
+      cursor: pointer;
+      color: #6c7086;
+    }
+    .tab.active {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-bottom: 2px solid #89b4fa;
+    }
+    .tab:hover { color: #cdd6f4; }
+    .tab .close { font-size: 14px; opacity: 0; margin-left: 4px; }
+    .tab:hover .close { opacity: 0.5; }
+
+    /* Editor Content */
+    #editor-content {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Main Editor (left) */
+    #editor-main {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Code area with line numbers */
+    .code-area {
+      flex: 1;
+      padding: 12px 0;
+      overflow: auto;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .code-line {
+      display: flex;
+      padding: 0 16px;
+    }
+    .code-line:hover { background: rgba(49, 50, 68, 0.3); }
+    .line-num {
+      width: 40px;
+      text-align: right;
+      color: #45475a;
+      margin-right: 16px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .code-text { flex: 1; }
+
+    /* Syntax colors */
+    .kw { color: #cba6f7; }     /* keyword */
+    .fn { color: #89b4fa; }     /* function */
+    .str { color: #a6e3a1; }    /* string */
+    .cm { color: #6c7086; }     /* comment */
+    .num { color: #fab387; }    /* number */
+    .type { color: #f9e2af; }   /* type */
+    .op { color: #89dceb; }     /* operator */
+
+    /* Code Lens */
+    .code-lens {
+      padding: 2px 16px 2px 72px;
+      font-family: -apple-system, sans-serif;
+      font-size: 11px;
+      color: #89b4fa;
+      cursor: pointer;
+      position: relative;
+    }
+    .code-lens:hover { text-decoration: underline; }
+
+    /* Editor Decoration (squiggly underline) */
+    .squiggle {
+      text-decoration: wavy underline #f38ba8;
+      text-underline-offset: 3px;
+    }
+
+    /* Minimap */
+    #minimap {
+      width: 60px;
+      background: #181825;
+      border-left: 1px solid #313244;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .minimap-block {
+      height: 3px;
+      margin: 1px 8px;
+      border-radius: 1px;
+      opacity: 0.3;
+    }
+
+    /* ============ AUXILIARY SIDEBAR (RIGHT) ============ */
+    #sidebar-aux {
+      width: 300px;
+      background: #1e1e2e;
+      border-left: 1px solid #313244;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    /* WebView inside sidebar */
+    .webview-sidebar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .webview-sidebar-header {
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-bottom: 1px solid #313244;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .webview-sidebar-content {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    /* Chat messages mock */
+    .chat-msg {
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .chat-msg.user {
+      background: #313244;
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+    .chat-msg.agent {
+      padding: 4px 0;
+      color: #bac2de;
+    }
+    .chat-tool {
+      border: 1px solid #313244;
+      border-radius: 6px;
+      margin: 6px 0;
+      border-left: 3px solid #a6e3a1;
+    }
+    .chat-tool-header {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #181825;
+      display: flex;
+      justify-content: space-between;
+    }
+    .chat-tool-body {
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #6c7086;
+    }
+    .chat-input-area {
+      padding: 8px 12px;
+      border-top: 1px solid #313244;
+      display: flex;
+      gap: 6px;
+    }
+    .chat-input {
+      flex: 1;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 8px;
+      padding: 6px 10px;
+      color: #cdd6f4;
+      font-size: 12px;
+      outline: none;
+    }
+    .chat-send {
+      background: #89b4fa;
+      color: #1e1e2e;
+      border: none;
+      border-radius: 8px;
+      width: 32px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    /* ============ BOTTOM PANEL ============ */
+    #bottom-panel {
+      height: 160px;
+      background: #1e1e2e;
+      border-top: 1px solid #313244;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: relative;
+    }
+    #panel-tabs {
+      display: flex;
+      border-bottom: 1px solid #313244;
+      background: #181825;
+    }
+    .panel-tab {
+      padding: 6px 16px;
+      font-size: 12px;
+      color: #6c7086;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .panel-tab.active {
+      color: #cdd6f4;
+      border-bottom-color: #89b4fa;
+    }
+    #panel-content {
+      flex: 1;
+      padding: 8px 16px;
+      font-family: 'SF Mono', monospace;
+      font-size: 12px;
+      color: #a6adc8;
+      overflow: auto;
+    }
+    .term-prompt { color: #a6e3a1; }
+    .term-cmd { color: #cdd6f4; }
+    .term-output { color: #6c7086; }
+
+    /* ============ STATUS BAR ============ */
+    #status-bar {
+      height: 24px;
+      background: #181825;
+      border-top: 1px solid #313244;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 11px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .sb-item {
+      padding: 0 8px;
+      color: #6c7086;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 100%;
+    }
+    .sb-item:hover { background: #313244; color: #cdd6f4; }
+    .sb-spacer { flex: 1; }
+    .sb-item.accent { color: #89b4fa; }
+
+    /* ============ NOTIFICATIONS ============ */
+    #notification {
+      position: fixed;
+      bottom: 40px;
+      right: 16px;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      width: 320px;
+      z-index: 200;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .notif-title { font-weight: 600; margin-bottom: 4px; }
+    .notif-body { font-size: 12px; color: #a6adc8; margin-bottom: 8px; }
+    .notif-actions { display: flex; gap: 8px; }
+    .notif-btn {
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .notif-btn.primary { background: #89b4fa; color: #1e1e2e; }
+    .notif-btn.secondary { background: #45475a; color: #cdd6f4; }
+
+    /* ============ COMMAND PALETTE ============ */
+    #command-palette {
+      position: fixed;
+      top: 38px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 8px;
+      overflow: hidden;
+      z-index: 300;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    .cp-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      color: #cdd6f4;
+      font-size: 14px;
+      outline: none;
+    }
+    .cp-list { border-top: 1px solid #45475a; }
+    .cp-item {
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+    .cp-item:hover, .cp-item.selected { background: #45475a; }
+    .cp-item .shortcut { color: #6c7086; font-size: 11px; }
+
+    /* ============ MODAL DIALOG ============ */
+    #modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal {
+      background: #313244;
+      border: 1px solid #45475a;
+      border-radius: 12px;
+      padding: 24px;
+      width: 400px;
+      text-align: center;
+    }
+    #modal h3 { margin-bottom: 8px; }
+    #modal p { color: #a6adc8; font-size: 13px; margin-bottom: 16px; }
+    .modal-code {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #f9e2af;
+      margin: 12px 0;
+    }
+
+    /* ============ LABELS (annotations) ============ */
+    .ref-label {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+      z-index: 50;
+      pointer-events: none;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+    .ref-label::after {
+      content: '';
+      position: absolute;
+      width: 1px;
+      background: inherit;
+      opacity: 0.4;
+    }
+    .c-red { background: #f38ba8; color: #1e1e2e; }
+    .c-blue { background: #89b4fa; color: #1e1e2e; }
+    .c-green { background: #a6e3a1; color: #1e1e2e; }
+    .c-yellow { background: #f9e2af; color: #1e1e2e; }
+    .c-mauve { background: #cba6f7; color: #1e1e2e; }
+    .c-peach { background: #fab387; color: #1e1e2e; }
+    .c-teal { background: #94e2d5; color: #1e1e2e; }
+    .c-pink { background: #f5c2e7; color: #1e1e2e; }
+
+    /* Toggle visibility */
+    .layer { display: none; }
+    .layer.visible { display: block; }
+
+    /* Controls */
+    #controls {
+      position: fixed;
+      top: 44px;
+      right: 8px;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #controls button {
+      padding: 4px 10px;
+      background: #45475a;
+      color: #cdd6f4;
+      border: 1px solid #585b70;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+    #controls button:hover { background: #585b70; }
+    #controls button.on { background: #89b4fa; color: #1e1e2e; border-color: #89b4fa; }
+  </style>
+</head>
+<body>
+
+  <!-- CONTROLS: toggle overlays -->
+  <div id="controls">
+    <button class="on" onclick="toggle('labels')">Labels</button>
+    <button onclick="toggle('palette')">Command Palette</button>
+    <button onclick="toggle('notification')">Notification</button>
+    <button onclick="toggle('modal')">Modal Dialog</button>
+  </div>
+
+  <!-- ========== TITLE BAR ========== -->
+  <div id="title-bar">
+    <div class="traffic-lights">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+    </div>
+    <div class="title-text">sim_alloy.py — PRISM</div>
+    <span class="ref-label c-red layer labels visible" style="right: 120px; top: 10px;">TITLE BAR — window chrome, app name</span>
+  </div>
+
+  <!-- ========== MAIN LAYOUT ========== -->
+  <div id="main">
+
+    <!-- ACTIVITY BAR -->
+    <div id="activity-bar">
+      <div class="ab-icon active" title="Explorer">&#128193;</div>
+      <div class="ab-icon" title="Search">&#128269;</div>
+      <div class="ab-icon" title="Git">&#9734;</div>
+      <div class="ab-icon" title="PRISM Agent" style="color: #89b4fa;">&#9671;</div>
+      <div class="ab-icon" title="Mesh">&#9678;</div>
+      <div class="ab-icon" title="Marketplace">&#9881;</div>
+      <div class="ab-spacer"></div>
+      <div class="ab-icon" title="Settings">&#9881;</div>
+      <span class="ref-label c-blue layer labels visible" style="left: 52px; top: 8px;">ACTIVITY BAR<br>Icon rail — click to<br>open/close sidebar.<br>Add PRISM icons here</span>
+    </div>
+
+    <!-- PRIMARY SIDEBAR -->
+    <div id="sidebar-primary">
+      <div class="sidebar-header">Explorer</div>
+      <div class="tree-group">&#9660; PRISM</div>
+      <div class="tree-item"><span class="icon">&#128196;</span> sim_alloy.py</div>
+      <div class="tree-item"><span class="icon">&#128196;</span> workflow.yaml</div>
+      <div class="tree-item"><span class="icon">&#128193;</span> tools/</div>
+      <div class="tree-item" style="padding-left: 36px;"><span class="icon">&#128196;</span> search.py</div>
+      <div class="tree-item" style="padding-left: 36px;"><span class="icon">&#128196;</span> predict.py</div>
+      <div class="tree-group">&#9660; MESH NODES</div>
+      <div class="tree-item"><span style="color: #a6e3a1;">●</span> lab-gpu-01 (idle)</div>
+      <div class="tree-item"><span style="color: #f9e2af;">●</span> lab-cpu-rack (busy)</div>
+      <div class="tree-item"><span style="color: #f38ba8;">●</span> edge-03 (offline)</div>
+      <span class="ref-label c-green layer labels visible" style="left: 50px; top: 50px;">PRIMARY SIDEBAR<br>File explorer, Tree Views,<br>WebView Views live here.<br>Materials Explorer, Mesh<br>Node list would go here.</span>
+    </div>
+
+    <!-- EDITOR AREA -->
+    <div id="editor-area">
+
+      <!-- Tab Bar -->
+      <div id="tab-bar">
+        <div class="tab active">&#128196; sim_alloy.py <span class="close">&#10005;</span></div>
+        <div class="tab">&#9671; Welcome <span class="close">&#10005;</span></div>
+        <div class="tab">&#128202; Phase Diagram <span class="close">&#10005;</span></div>
+        <span class="ref-label c-yellow layer labels visible" style="left: 120px; top: 0px;">TAB BAR — each tab is an Editor Tab.<br>Files, WebView Panels (chat canvas,<br>welcome, 3D viewer) all open as tabs.</span>
+      </div>
+
+      <!-- Editor Content -->
+      <div id="editor-content">
+
+        <!-- Main Editor -->
+        <div id="editor-main">
+          <div class="code-area">
+            <!-- Code Lens -->
+            <div class="code-lens">&#9654; Run Simulation &nbsp;|&nbsp; &#9671; Ask PRISM Agent</div>
+            <span class="ref-label c-mauve layer labels visible" style="left: 80px; top: 2px;">CODE LENS — clickable actions<br>above functions. "Ask PRISM Agent"</span>
+
+            <div class="code-line"><span class="line-num">1</span><span class="code-text"><span class="kw">import</span> prism</span></div>
+            <div class="code-line"><span class="line-num">2</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="line-num">3</span><span class="code-text"><span class="kw">def</span> <span class="fn">simulate_alloy</span>(composition: <span class="type">dict</span>) -> <span class="type">dict</span>:</span></div>
+            <div class="code-line"><span class="line-num">4</span><span class="code-text">    <span class="str">"""Run thermodynamic simulation."""</span></span></div>
+            <div class="code-line"><span class="line-num">5</span><span class="code-text">    results <span class="op">=</span> prism.tools.<span class="fn">calc_phase</span>(</span></div>
+            <div class="code-line"><span class="line-num">6</span><span class="code-text">        elements<span class="op">=</span>composition,</span></div>
+            <div class="code-line"><span class="line-num">7</span><span class="code-text">        temperature<span class="op">=</span><span class="num">1400</span>,  <span class="cm"># Kelvin</span></span></div>
+            <div class="code-line"><span class="line-num">8</span><span class="code-text">        <span class="squiggle">pressure</span><span class="op">=</span><span class="num">101325</span>,</span></div>
+            <div class="code-line"><span class="line-num">9</span><span class="code-text">    )</span></div>
+            <div class="code-line"><span class="line-num">10</span><span class="code-text">    <span class="kw">return</span> results</span></div>
+            <div class="code-line"><span class="line-num">11</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="line-num">12</span><span class="code-text"><span class="cm"># Run with Ti-6Al-4V</span></span></div>
+            <div class="code-line"><span class="line-num">13</span><span class="code-text">out <span class="op">=</span> <span class="fn">simulate_alloy</span>({</span></div>
+            <div class="code-line"><span class="line-num">14</span><span class="code-text">    <span class="str">"Ti"</span>: <span class="num">0.90</span>, <span class="str">"Al"</span>: <span class="num">0.06</span>, <span class="str">"V"</span>: <span class="num">0.04</span></span></div>
+            <div class="code-line"><span class="line-num">15</span><span class="code-text">})</span></div>
+
+            <span class="ref-label c-peach layer labels visible" style="right: 80px; top: 140px;">EDITOR DECORATION<br>Squiggly underline on<br>"pressure" — warnings,<br>errors, agent suggestions</span>
+
+            <span class="ref-label c-teal layer labels visible" style="left: 80px; bottom: 20px;">EDITOR AREA — main content zone.<br>Code files, notebooks, and WebView Panels<br>(chat canvas, welcome, 3D viewer) all render here.</span>
+          </div>
+        </div>
+
+        <!-- Minimap -->
+        <div id="minimap">
+          <div style="padding-top: 20px;">
+            <div class="minimap-block" style="background: #cba6f7; width: 30px;"></div>
+            <div class="minimap-block" style="background: #cdd6f4; width: 20px;"></div>
+            <div class="minimap-block" style="background: #89b4fa; width: 35px;"></div>
+            <div class="minimap-block" style="background: #cdd6f4; width: 25px;"></div>
+            <div class="minimap-block" style="background: #a6e3a1; width: 30px;"></div>
+            <div class="minimap-block" style="background: #cdd6f4; width: 15px;"></div>
+            <div class="minimap-block" style="background: #cdd6f4; width: 28px;"></div>
+            <div class="minimap-block" style="background: #fab387; width: 22px;"></div>
+            <div class="minimap-block" style="background: #cdd6f4; width: 35px;"></div>
+            <div class="minimap-block" style="background: #6c7086; width: 30px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM PANEL -->
+      <div id="bottom-panel">
+        <div id="panel-tabs">
+          <div class="panel-tab active">Terminal</div>
+          <div class="panel-tab">Output</div>
+          <div class="panel-tab">Problems</div>
+          <div class="panel-tab">Debug Console</div>
+          <span class="ref-label c-pink layer labels visible" style="right: 16px; top: 2px;">BOTTOM PANEL — Terminal, Output,<br>Problems. Drag handle to resize.</span>
+        </div>
+        <div id="panel-content">
+          <div><span class="term-prompt">~/prism $</span> <span class="term-cmd">prism search "Ti alloys" --limit 5</span></div>
+          <div class="term-output">Searching federated databases...</div>
+          <div class="term-output">Found 47 materials from 6 providers</div>
+          <div class="term-output">  mp-149  │ Ti    │ 1668°C │ Materials Project</div>
+          <div class="term-output">  mp-2534 │ TiAl  │ 1460°C │ NOMAD</div>
+          <div class="term-output">  mp-8912 │ Ti6Al4V │ 1604°C │ AFLOW</div>
+          <div><span class="term-prompt">~/prism $</span> <span class="term-cmd">█</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUXILIARY SIDEBAR (RIGHT) -->
+    <div id="sidebar-aux">
+      <div class="webview-sidebar">
+        <div class="webview-sidebar-header">
+          <span style="color: #89b4fa;">&#9671;</span> PRISM Agent
+          <span style="flex:1;"></span>
+          <span style="color: #a6e3a1; font-size: 10px;">● Connected</span>
+        </div>
+        <div class="webview-sidebar-content">
+          <div class="chat-msg user">Find Ti-6Al-4V alternatives with better creep resistance for turbine blades</div>
+          <div class="chat-msg agent">I'll search for high-temperature alloys with improved creep properties.</div>
+
+          <div class="chat-tool">
+            <div class="chat-tool-header">
+              <span>&#10004; search_materials</span>
+              <span style="color: #6c7086;">1.2s</span>
+            </div>
+            <div class="chat-tool-body">Found 14 materials from 6 providers</div>
+          </div>
+
+          <div class="chat-msg agent">Based on the results, Ti-48Al-2Cr-2Nb shows 3x better creep resistance at 760°C...</div>
+          <div style="font-size: 10px; color: #6c7086; text-align: right; margin-top: 4px;">2.1k in · 340 out · $0.0008</div>
+        </div>
+        <div class="chat-input-area">
+          <input class="chat-input" placeholder="Ask anything..." value="">
+          <button class="chat-send">&#9654;</button>
+        </div>
+      </div>
+      <span class="ref-label c-blue layer labels visible" style="right: 4px; top: 60px;">AUXILIARY SIDEBAR (right)<br>WebView View for Agent Chat.<br>Can also be an Editor Tab<br>(our "floating chat canvas").<br>Any custom HTML lives in<br>WebViews like this.</span>
+    </div>
+  </div>
+
+  <!-- ========== STATUS BAR ========== -->
+  <div id="status-bar">
+    <div class="sb-item">&#9745; main</div>
+    <div class="sb-item">&#10003; 0 &#10007; 0</div>
+    <div class="sb-spacer"></div>
+    <div class="sb-item accent">&#9671; PRISM Agent</div>
+    <div class="sb-item">&#128100; siddhartha</div>
+    <div class="sb-item">Ln 8, Col 12</div>
+    <div class="sb-item">UTF-8</div>
+    <div class="sb-item">Python</div>
+    <span class="ref-label c-red layer labels visible" style="right: 100px; bottom: 28px;">STATUS BAR — always visible. Status Bar Items<br>go here. "PRISM Agent" button, auth status, etc.</span>
+  </div>
+
+  <!-- ========== OVERLAYS ========== -->
+
+  <!-- Command Palette -->
+  <div id="command-palette" class="layer">
+    <input class="cp-input" placeholder=">" value="> PRISM: ">
+    <div class="cp-list">
+      <div class="cp-item selected"><span>PRISM: New Chat</span><span class="shortcut">Ctrl+Shift+P</span></div>
+      <div class="cp-item"><span>PRISM: Sign In to MARC27</span></div>
+      <div class="cp-item"><span>PRISM: Show Welcome</span></div>
+      <div class="cp-item"><span>PRISM: Toggle Auto-Approve</span></div>
+      <div class="cp-item"><span>PRISM: Ask Agent About Selection</span></div>
+    </div>
+    <span class="ref-label c-yellow" style="right: -160px; top: 10px;">COMMAND PALETTE<br>Quick Pick — Cmd+Shift+P<br>All PRISM commands appear<br>here, searchable</span>
+  </div>
+
+  <!-- Notification -->
+  <div id="notification" class="layer">
+    <div class="notif-title">PRISM Agent</div>
+    <div class="notif-body">Simulation complete. Ti-48Al-2Cr-2Nb shows 3x better creep resistance. View results?</div>
+    <div class="notif-actions">
+      <button class="notif-btn primary">View Results</button>
+      <button class="notif-btn secondary">Dismiss</button>
+    </div>
+    <span class="ref-label c-peach" style="left: -140px; top: 10px;">NOTIFICATION<br>Toast popup, bottom-right.<br>Use for completion alerts,<br>errors, action prompts</span>
+  </div>
+
+  <!-- Modal Dialog -->
+  <div id="modal-overlay" class="layer">
+    <div id="modal">
+      <h3>Sign in to MARC27</h3>
+      <p>Enter this code in your browser:</p>
+      <div class="modal-code">PRISM-7X4K</div>
+      <p style="font-size: 11px; color: #6c7086;">A browser window has opened. Enter the code above to complete sign-in.</p>
+      <div class="notif-actions" style="justify-content: center; margin-top: 12px;">
+        <button class="notif-btn primary">Done</button>
+        <button class="notif-btn secondary">Cancel</button>
+      </div>
+      <span class="ref-label c-mauve" style="right: -120px; top: 20px;">MODAL DIALOG<br>Blocks interaction.<br>Use for auth codes,<br>confirmations</span>
+    </div>
+  </div>
+
+  <script>
+    function toggle(id) {
+      var layers = document.querySelectorAll('.' + id + ', #' + id + ', #' + id + '-overlay');
+      var btn = event.target;
+      layers.forEach(function(el) {
+        el.classList.toggle('visible');
+        if (el.style.display === 'none' || !el.classList.contains('visible')) {
+          el.style.display = '';
+          el.classList.remove('visible');
+        } else {
+          el.classList.add('visible');
+        }
+      });
+
+      // Special handling for layers that use display
+      var el = document.getElementById(id) || document.getElementById(id + '-overlay');
+      if (el) {
+        var isVisible = el.classList.contains('layer') && !el.classList.contains('visible');
+        if (el.classList.contains('visible')) {
+          el.style.display = '';
+        }
+      }
+      btn.classList.toggle('on');
+    }
+
+    // Simple toggle that works
+    document.querySelectorAll('#controls button').forEach(function(btn) {
+      btn.removeAttribute('onclick');
+    });
+
+    var buttons = document.querySelectorAll('#controls button');
+    buttons[0].addEventListener('click', function() {
+      document.querySelectorAll('.labels').forEach(function(el) {
+        el.style.display = el.style.display === 'none' ? '' : 'none';
+      });
+      this.classList.toggle('on');
+    });
+    buttons[1].addEventListener('click', function() {
+      var el = document.getElementById('command-palette');
+      el.style.display = el.style.display === 'none' ? '' : 'none';
+      this.classList.toggle('on');
+    });
+    buttons[2].addEventListener('click', function() {
+      var el = document.getElementById('notification');
+      el.style.display = el.style.display === 'none' ? '' : 'none';
+      this.classList.toggle('on');
+    });
+    buttons[3].addEventListener('click', function() {
+      var el = document.getElementById('modal-overlay');
+      el.style.display = el.style.display === 'none' ? '' : 'none';
+      this.classList.toggle('on');
+    });
+
+    // Hide overlays initially except labels
+    document.getElementById('command-palette').style.display = 'none';
+    document.getElementById('notification').style.display = 'none';
+    document.getElementById('modal-overlay').style.display = 'none';
+  </script>
+
+</body>
+</html>
