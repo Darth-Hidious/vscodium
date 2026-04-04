@@ -65,8 +65,8 @@ if [[ "${DISABLE_UPDATE}" != "yes" ]]; then
 fi
 
 if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-  setpath "product" "nameShort" "PRISM Desktop - Insiders"
-  setpath "product" "nameLong" "PRISM Desktop - Insiders"
+  setpath "product" "nameShort" "PRISM - Insiders"
+  setpath "product" "nameLong" "PRISM - Insiders"
   setpath "product" "applicationName" "prism-desktop-insiders"
   setpath "product" "dataFolderName" ".prism-desktop-insiders"
   setpath "product" "linuxIconName" "prism-desktop-insiders"
@@ -76,11 +76,11 @@ if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
   setpath "product" "serverDataFolderName" ".prism-desktop-server-insiders"
   setpath "product" "darwinBundleIdentifier" "com.marc27.prism-desktop-insiders"
   setpath "product" "win32AppUserModelId" "MARC27.PRISMDesktopInsiders"
-  setpath "product" "win32DirName" "PRISM Desktop Insiders"
+  setpath "product" "win32DirName" "PRISM Insiders"
   setpath "product" "win32MutexName" "prismdesktopinsiders"
-  setpath "product" "win32NameVersion" "PRISM Desktop Insiders"
+  setpath "product" "win32NameVersion" "PRISM Insiders"
   setpath "product" "win32RegValueName" "PRISMDesktopInsiders"
-  setpath "product" "win32ShellNameShort" "PRISM Desktop Insiders"
+  setpath "product" "win32ShellNameShort" "PRISM Insiders"
   setpath "product" "win32AppId" "{{EF35BB36-FA7E-4BB9-B7DA-D1E09F2DA9C9}"
   setpath "product" "win32x64AppId" "{{B2E0DDB2-120E-4D34-9F7E-8C688FF839A2}"
   setpath "product" "win32arm64AppId" "{{44721278-64C6-4513-BC45-D48E07830599}"
@@ -93,8 +93,8 @@ if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
   setpath "product" "win32ContextMenu.x64.clsid" "90AAD229-85FD-43A3-B82D-8598A88829CF"
   setpath "product" "win32ContextMenu.arm64.clsid" "7544C31C-BDBF-4DDF-B15E-F73A46D6723D"
 else
-  setpath "product" "nameShort" "PRISM Desktop"
-  setpath "product" "nameLong" "PRISM Desktop"
+  setpath "product" "nameShort" "PRISM"
+  setpath "product" "nameLong" "PRISM"
   setpath "product" "applicationName" "prism-desktop"
   setpath "product" "linuxIconName" "prism-desktop"
   setpath "product" "quality" "stable"
@@ -103,11 +103,11 @@ else
   setpath "product" "serverDataFolderName" ".prism-desktop-server"
   setpath "product" "darwinBundleIdentifier" "com.marc27.prism-desktop"
   setpath "product" "win32AppUserModelId" "MARC27.PRISMDesktop"
-  setpath "product" "win32DirName" "PRISM Desktop"
+  setpath "product" "win32DirName" "PRISM"
   setpath "product" "win32MutexName" "prismdesktop"
-  setpath "product" "win32NameVersion" "PRISM Desktop"
+  setpath "product" "win32NameVersion" "PRISM"
   setpath "product" "win32RegValueName" "PRISMDesktop"
-  setpath "product" "win32ShellNameShort" "PRISM Desktop"
+  setpath "product" "win32ShellNameShort" "PRISM"
   setpath "product" "win32AppId" "{{763CBF88-25C6-4B10-952F-326AE657F16B}"
   setpath "product" "win32x64AppId" "{{88DA3577-054F-4CA1-8122-7D820494CFFB}"
   setpath "product" "win32arm64AppId" "{{67DEE444-3D04-4258-B92A-BC1F0FF2CAE4}"
@@ -232,11 +232,11 @@ replace 's|Microsoft Corporation|MARC27|' package.json
 cp resources/server/manifest.json{,.bak}
 
 if [[ "${VSCODE_QUALITY}" == "insider" ]]; then
-  setpath "resources/server/manifest" "name" "PRISM Desktop - Insiders"
-  setpath "resources/server/manifest" "short_name" "PRISM Desktop - Insiders"
+  setpath "resources/server/manifest" "name" "PRISM - Insiders"
+  setpath "resources/server/manifest" "short_name" "PRISM - Insiders"
 else
-  setpath "resources/server/manifest" "name" "PRISM Desktop"
-  setpath "resources/server/manifest" "short_name" "PRISM Desktop"
+  setpath "resources/server/manifest" "name" "PRISM"
+  setpath "resources/server/manifest" "short_name" "PRISM"
 fi
 
 # announcements
@@ -260,26 +260,26 @@ if [[ "${OS_NAME}" == "linux" ]]; then
 
   # fix the packages metadata
   # code.appdata.xml
-  sed -i 's|Visual Studio Code|PRISM Desktop|g' resources/linux/code.appdata.xml
+  sed -i 's|Visual Studio Code|PRISM|g' resources/linux/code.appdata.xml
   sed -i 's|https://code.visualstudio.com/docs/setup/linux|https://github.com/Darth-Hidious/vscodium#building|' resources/linux/code.appdata.xml
   sed -i 's|https://code.visualstudio.com/home/home-screenshot-linux-lg.png|https://prism.marc27.com/img/prism-desktop.png|' resources/linux/code.appdata.xml
   sed -i 's|https://code.visualstudio.com|https://prism.marc27.com|' resources/linux/code.appdata.xml
 
   # control.template
   sed -i 's|Microsoft Corporation <vscode-linux@microsoft.com>|MARC27 https://marc27.com|'  resources/linux/debian/control.template
-  sed -i 's|Visual Studio Code|PRISM Desktop|g' resources/linux/debian/control.template
+  sed -i 's|Visual Studio Code|PRISM|g' resources/linux/debian/control.template
   sed -i 's|https://code.visualstudio.com/docs/setup/linux|https://github.com/Darth-Hidious/vscodium#building|' resources/linux/debian/control.template
   sed -i 's|https://code.visualstudio.com|https://prism.marc27.com|' resources/linux/debian/control.template
 
   # code.spec.template
   sed -i 's|Microsoft Corporation|MARC27|' resources/linux/rpm/code.spec.template
   sed -i 's|Visual Studio Code Team <vscode-linux@microsoft.com>|MARC27 https://marc27.com|' resources/linux/rpm/code.spec.template
-  sed -i 's|Visual Studio Code|PRISM Desktop|' resources/linux/rpm/code.spec.template
+  sed -i 's|Visual Studio Code|PRISM|' resources/linux/rpm/code.spec.template
   sed -i 's|https://code.visualstudio.com/docs/setup/linux|https://github.com/Darth-Hidious/vscodium#building|' resources/linux/rpm/code.spec.template
   sed -i 's|https://code.visualstudio.com|https://prism.marc27.com|' resources/linux/rpm/code.spec.template
 
   # snapcraft.yaml
-  sed -i 's|Visual Studio Code|PRISM Desktop|' resources/linux/rpm/code.spec.template
+  sed -i 's|Visual Studio Code|PRISM|' resources/linux/rpm/code.spec.template
 elif [[ "${OS_NAME}" == "windows" ]]; then
   # code.iss
   sed -i 's|https://code.visualstudio.com|https://prism.marc27.com|' build/win32/code.iss

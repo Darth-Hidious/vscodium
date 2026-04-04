@@ -1,7 +1,65 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0" y="0" width="40" height="40" viewBox="0, 0, 40, 40">
-  <g id="codium_grey_hc_dark_letterpress">
-    <path d="M19.582,8.546 C18.897,8.985 18.7,9.896 19.141,10.578 C21.567,14.335 22.14,17.169 21.892,19.653 C20.888,24.409 18.705,25.373 16.797,25.373 C14.935,25.373 15.434,22.308 16.833,21.411 C17.669,20.889 18.74,20.55 19.561,20.55 C20.375,20.55 21.035,19.892 21.035,19.081 C21.035,18.269 20.375,17.611 19.561,17.611 C18.602,17.611 17.66,17.813 16.782,18.156 C16.961,17.309 17.027,16.394 16.795,15.421 C16.443,13.943 15.429,12.532 13.668,11.164 C13.359,10.924 12.968,10.816 12.58,10.864 C12.192,10.912 11.839,11.112 11.599,11.42 C11.099,12.06 11.215,12.984 11.857,13.482 C13.292,14.597 13.766,15.422 13.928,16.1 C14.09,16.779 13.959,17.508 13.634,18.509 C13.218,19.857 12.735,21.062 12.524,22.216 C12.419,22.784 12.41,23.403 12.384,23.897 C11.35,22.89 10.946,21.56 10.946,19.618 C10.946,18.806 10.286,18.148 9.472,18.148 C8.659,18.149 8,18.806 7.999,19.618 C7.999,22.271 8.775,24.796 10.855,26.48 C12.737,28.274 17.525,27.611 17.525,30.49 C17.525,31.303 18.714,31.698 19.528,31.698 C20.363,31.698 21.413,31.14 21.413,30.49 C21.413,27.223 24.856,25.238 30.524,25.246 C31.338,25.248 31.998,24.59 31.999,23.779 C32.001,22.967 31.342,22.307 30.528,22.306 C30.14,22.305 29.763,22.319 29.39,22.341 C30.024,20.851 30.305,19.21 30.247,17.438 C30.22,16.626 29.539,15.99 28.725,16.017 C27.911,16.043 27.273,16.723 27.3,17.535 C27.377,19.855 27.29,21.927 25.561,23.019 C25.07,23.33 24.498,23.599 23.956,23.599 C24.377,22.455 24.695,21.247 24.825,19.945 C24.908,19.114 24.917,18.127 24.822,17.36 C24.675,16.172 24.497,14.825 24.948,13.81 C25.353,12.936 26.261,12.57 27.594,12.57 C28.407,12.569 29.066,11.911 29.066,11.1 C29.067,10.288 28.407,9.63 27.594,9.629 C25.613,9.629 24.112,10.671 23.261,11.93 C22.816,10.98 22.274,10.001 21.619,8.987 C21.408,8.659 21.075,8.429 20.693,8.346 C20.504,8.305 20.308,8.302 20.118,8.336 C19.927,8.37 19.745,8.441 19.582,8.546 z" fill="#3C3C3C" id="path6008"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+    <defs>
+        <radialGradient id="vignette" cx="55%" cy="48%" r="70%">
+            <stop offset="60%" stop-color="#000" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#000" stop-opacity="0.5"/>
+        </radialGradient>
+
+        <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+            <stop offset="50%" stop-color="#c8e6ff" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1"/>
+        </linearGradient>
+
+        <linearGradient id="internalGrad" x1="130" y1="246" x2="238" y2="246" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.1"/>
+        </linearGradient>
+
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
+            <feMerge>
+                <feMergeNode in="blur2" />
+                <feMergeNode in="blur1" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+
+        <filter id="strong-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
+            <feMerge>
+                <feMergeNode in="blur2" />
+                <feMergeNode in="blur1" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+
+    <!-- Baked Dark Background -->
+    <rect width="512" height="512" fill="#0D0E15" rx="128" />
+
+    <!-- Incoming Light Beam -->
+    <path d="M -20,246 L 130.4,246" stroke="#FFFFFF" stroke-width="2.5" filter="url(#strong-glow)" />
+
+    <!-- The Prism -->
+    <polygon points="180,160 90,316 270,316" fill="url(#glass)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linejoin="round" />
+
+    <!-- Internal Dispersion Cone -->
+    <polygon points="130.4,246 221.5,232 237.7,260" fill="url(#internalGrad)" style="mix-blend-mode: screen; opacity: 0.15;" />
+
+    <!-- Spectral Beams -->
+    <g stroke-width="3.5" filter="url(#glow)" style="mix-blend-mode: screen; stroke-linecap: butt;">
+        <path stroke="#FF0000" d="M221.5,232 L520,127.5" />
+        <path stroke="#FF8C00" d="M223.8,236 L520,162.5" />
+        <path stroke="#FFD700" d="M226.2,240 L520,197.5" />
+        <path stroke="#00FF00" d="M228.5,244 L520,232.5" />
+        <path stroke="#00BFFF" d="M230.8,248 L520,267.5" />
+        <path stroke="#0000FF" d="M233.1,252 L520,302.5" />
+        <path stroke="#4B0082" d="M235.4,256 L520,337.5" />
+        <path stroke="#8B00FF" d="M237.7,260 L520,372.5" />
+    </g>
+
+    <rect width="100%" height="100%" fill="url(#vignette)" pointer-events="none" />
 </svg>

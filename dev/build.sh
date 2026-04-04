@@ -5,7 +5,7 @@
 # to run with Bash: "C:\Program Files\Git\bin\bash.exe" ./dev/build.sh
 ###
 
-export APP_NAME="PRISM Desktop"
+export APP_NAME="PRISM"
 export ASSETS_REPOSITORY="Darth-Hidious/vscodium"
 export BINARY_NAME="prism-desktop"
 export CI_BUILD="no"
