@@ -1,111 +1,215 @@
 import * as vscode from 'vscode';
+import { execFile, spawn, ChildProcess } from 'child_process';
 import type { AgentEvent, ConnectionState } from './types';
 
 /**
- * WebSocket client that connects to the PRISM agent server.
- * Uses vscode's built-in fetch for HTTP, and raw TCP isn't needed —
- * we poll via HTTP SSE or use the VS Code proposed API for WebSocket.
- * For now, uses a simple HTTP polling approach that works everywhere.
+ * Spawns `prism backend` as a child process and communicates via JSON-RPC
+ * over stdin/stdout — the exact same protocol the Ink TUI uses.
+ *
+ * This is NOT a separate service — it's one child process managed by
+ * the extension, talking the same protocol as the TUI frontend.
  */
 export class AgentClient {
-  private _state: ConnectionState = 'disconnected';
-  private pollTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
-  private sessionId = '';
+	private process: ChildProcess | null = null;
+	private _state: ConnectionState = 'disconnected';
+	private buffer = '';
+	private nextId = 1;
 
-  private readonly _onEvent = new vscode.EventEmitter<AgentEvent>();
-  readonly onEvent = this._onEvent.event;
+	private readonly _onEvent = new vscode.EventEmitter<AgentEvent>();
+	readonly onEvent = this._onEvent.event;
 
-  private readonly _onStateChange = new vscode.EventEmitter<ConnectionState>();
-  readonly onStateChange = this._onStateChange.event;
+	private readonly _onStateChange = new vscode.EventEmitter<ConnectionState>();
+	readonly onStateChange = this._onStateChange.event;
 
-  get state(): ConnectionState {
-    return this._state;
-  }
+	get state(): ConnectionState {
+		return this._state;
+	}
 
-  connect(): void {
-    if (this._state === 'connecting' || this._state === 'connected') {
-      return;
-    }
-    this.setState('connecting');
+	connect(): void {
+		if (this._state === 'connected' || this._state === 'connecting') {
+			return;
+		}
 
-    const config = vscode.workspace.getConfiguration('prism.agent');
-    const serverUrl = config.get<string>('serverUrl', 'http://127.0.0.1:3100');
-    const autoApprove = config.get<boolean>('autoApprove', false);
+		this.setState('connecting');
 
-    // Init session
-    this.doPost(`${serverUrl}/api/agent/init`, { auto_approve: autoApprove })
-      .then((resp: Record<string, unknown>) => {
-        this.sessionId = resp.session_id as string || '';
-        this.setState('connected');
-      })
-      .catch(() => {
-        this.setState('error');
-      });
-  }
+		this._findPrismBinary((prismBin) => {
+			if (!prismBin) {
+				this.setState('error');
+				vscode.window.showErrorMessage(
+					'PRISM CLI not found. Install it with: curl -fsSL https://prism.marc27.com/install | sh'
+				);
+				return;
+			}
 
-  disconnect(): void {
-    if (this.pollTimer) {
-      globalThis.clearTimeout(this.pollTimer);
-      this.pollTimer = null;
-    }
-    this.sessionId = '';
-    this.setState('disconnected');
-  }
+			try {
+				this.process = spawn(prismBin, ['backend'], {
+					stdio: ['pipe', 'pipe', 'pipe'],
+					env: { ...process.env },
+				});
 
-  sendMessage(text: string): void {
-    const config = vscode.workspace.getConfiguration('prism.agent');
-    const serverUrl = config.get<string>('serverUrl', 'http://127.0.0.1:3100');
+				this.process.stdout?.on('data', (chunk: Buffer) => {
+					this.buffer += chunk.toString();
+					this._processBuffer();
+				});
 
-    this.doPost(`${serverUrl}/api/agent/message`, {
-      session_id: this.sessionId,
-      text,
-    }).then((resp: Record<string, unknown>) => {
-      const events = resp.events as AgentEvent[] | undefined;
-      if (events) {
-        for (const event of events) {
-          this._onEvent.fire(event);
-        }
-      }
-    }).catch(() => {
-      this._onEvent.fire({ type: 'error', message: 'Failed to send message' });
-    });
-  }
+				this.process.stderr?.on('data', (chunk: Buffer) => {
+					const msg = chunk.toString().trim();
+					if (msg) {
+						console.log('[prism backend]', msg);
+					}
+				});
 
-  sendApproval(callId: string, approved: boolean): void {
-    const config = vscode.workspace.getConfiguration('prism.agent');
-    const serverUrl = config.get<string>('serverUrl', 'http://127.0.0.1:3100');
+				this.process.on('error', (err) => {
+					console.error('[prism backend] spawn error:', err.message);
+					this.setState('error');
+				});
 
-    this.doPost(`${serverUrl}/api/agent/approval`, {
-      session_id: this.sessionId,
-      call_id: callId,
-      approved,
-    }).catch(() => {
-      // silently fail
-    });
-  }
+				this.process.on('close', (code) => {
+					console.log('[prism backend] exited with code', code);
+					this.process = null;
+					this.setState('disconnected');
+				});
 
-  private setState(state: ConnectionState): void {
-    if (this._state !== state) {
-      this._state = state;
-      this._onStateChange.fire(state);
-    }
-  }
+				this.setState('connected');
+			} catch (err) {
+				console.error('[prism backend] failed to spawn:', err);
+				this.setState('error');
+			}
+		});
+	}
 
-  private async doPost(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status}`);
-    }
-    return await resp.json() as Record<string, unknown>;
-  }
+	disconnect(): void {
+		if (this.process) {
+			this.process.stdin?.end();
+			this.process.kill();
+			this.process = null;
+		}
+		this.buffer = '';
+		this.setState('disconnected');
+	}
 
-  dispose(): void {
-    this.disconnect();
-    this._onEvent.dispose();
-    this._onStateChange.dispose();
-  }
+	sendMessage(text: string): void {
+		this._sendRpc('input.message', { text });
+	}
+
+	sendApproval(callId: string, approved: boolean): void {
+		this._sendRpc('input.prompt_response', {
+			prompt_type: 'approval',
+			response: approved ? 'y' : 'n',
+		});
+	}
+
+	private _sendRpc(method: string, params: Record<string, unknown>): void {
+		if (!this.process?.stdin?.writable) {
+			return;
+		}
+		const msg = JSON.stringify({
+			jsonrpc: '2.0',
+			id: this.nextId++,
+			method,
+			params,
+		});
+		this.process.stdin.write(msg + '\n');
+	}
+
+	private _processBuffer(): void {
+		const lines = this.buffer.split('\n');
+		this.buffer = lines.pop() || '';
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed) { continue; }
+			try {
+				const msg = JSON.parse(trimmed);
+				if (msg.method && !('id' in msg)) {
+					this._onEvent.fire(this._parseEvent(msg));
+				}
+			} catch {
+				// Not JSON — ignore
+			}
+		}
+	}
+
+	private _parseEvent(msg: { method: string; params?: Record<string, unknown> }): AgentEvent {
+		const p = msg.params ?? {};
+		const methodMap: Record<string, string> = {
+			'ui.text.delta': 'text.delta',
+			'ui.text.flush': 'text.flush',
+			'ui.tool.start': 'tool.start',
+			'ui.card': 'tool.result',
+			'ui.prompt': 'tool.approval',
+			'ui.cost': 'cost',
+			'ui.turn.complete': 'turn.complete',
+		};
+		const type = methodMap[msg.method] ?? msg.method;
+
+		if (msg.method === 'ui.card') {
+			return {
+				type: 'tool.result',
+				call_id: (p.data as Record<string, unknown>)?.call_id as string || '',
+				tool_name: p.tool_name as string || '',
+				elapsed_ms: p.elapsed_ms as number || 0,
+				success: p.card_type !== 'error',
+				summary: p.content as string || '',
+			} as AgentEvent;
+		}
+
+		if (msg.method === 'ui.prompt') {
+			return {
+				type: 'tool.approval',
+				call_id: '',
+				tool_name: p.tool_name as string || '',
+				args: p.tool_args as Record<string, unknown> || {},
+			} as AgentEvent;
+		}
+
+		return { type, ...p } as unknown as AgentEvent;
+	}
+
+	private _findPrismBinary(callback: (path: string | null) => void): void {
+		const home = process.env['HOME'] || process.env['USERPROFILE'] || '';
+		const candidates = [
+			`${home}/.prism/bin/prism`,
+			`${home}/.cargo/bin/prism`,
+			'/usr/local/bin/prism',
+			'/opt/homebrew/bin/prism',
+		];
+
+		// Try `which prism` first (safe — no user input)
+		execFile('/usr/bin/which', ['prism'], { timeout: 3000 }, (err, stdout) => {
+			if (!err && stdout.trim()) {
+				callback(stdout.trim().split('\n')[0]);
+				return;
+			}
+
+			// Check common locations
+			const tryNext = (i: number) => {
+				if (i >= candidates.length) {
+					callback(null);
+					return;
+				}
+				execFile('/usr/bin/test', ['-x', candidates[i]], { timeout: 1000 }, (testErr) => {
+					if (!testErr) {
+						callback(candidates[i]);
+					} else {
+						tryNext(i + 1);
+					}
+				});
+			};
+			tryNext(0);
+		});
+	}
+
+	private setState(state: ConnectionState): void {
+		if (this._state !== state) {
+			this._state = state;
+			this._onStateChange.fire(state);
+		}
+	}
+
+	dispose(): void {
+		this.disconnect();
+		this._onEvent.dispose();
+		this._onStateChange.dispose();
+	}
 }
