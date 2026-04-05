@@ -1,0 +1,85 @@
+{
+  "name": "prism-materials",
+  "displayName": "PRISM Materials Explorer",
+  "description": "Interactive periodic table and composition builder for materials scientists — search compounds, tune ratios, filter by properties, and query the PRISM agent.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Visualization",
+    "Data Science"
+  ],
+  "keywords": [
+    "prism",
+    "marc27",
+    "materials science",
+    "periodic table",
+    "chemistry"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "prism-materials",
+          "title": "Materials Explorer",
+          "icon": "media/materials-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "prism-materials": [
+        {
+          "type": "webview",
+          "id": "prism.materials.explorer",
+          "name": "Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "prism.materials.openPeriodicTable",
+        "title": "PRISM: Open Periodic Table",
+        "icon": "$(symbol-misc)"
+      },
+      {
+        "command": "prism.materials.searchMaterials",
+        "title": "PRISM: Search Materials",
+        "icon": "$(search)"
+      },
+      {
+        "command": "prism.materials.askAgent",
+        "title": "PRISM: Ask Agent About Composition",
+        "icon": "$(comment-discussion)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "prism.materials.searchMaterials",
+          "when": "view == prism.materials.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "prism.materials.askAgent",
+          "when": "view == prism.materials.explorer",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
