@@ -289,7 +289,9 @@ fi
 # {{{ PRISM core — native workbench contributions
 echo "Installing PRISM core contributions..."
 if [[ -d "../src/stable/src/vs/workbench/contrib/prism" ]]; then
-  cp -r "../src/stable/src/vs/workbench/contrib/prism" "src/vs/workbench/contrib/prism"
+  rm -rf "src/vs/workbench/contrib/prism"
+  mkdir -p "src/vs/workbench/contrib/prism"
+  cp -r "../src/stable/src/vs/workbench/contrib/prism/." "src/vs/workbench/contrib/prism/"
   echo "  + prism core (auth, chat)"
 fi
 
