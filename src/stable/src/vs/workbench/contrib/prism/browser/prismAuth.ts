@@ -17,9 +17,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 const MARC27_PROVIDER_ID = 'marc27';
 const MARC27_PROVIDER_LABEL = 'MARC27';
 const MARC27_SECRET_KEY = 'marc27.sessions';
-const MARC27_CLIENT_ID = 'prism-desktop';
+const MARC27_CLIENT_ID = 'prism-cli';
 const MARC27_DEFAULT_SCOPES = 'read write marketplace mesh billing';
-const MARC27_DEFAULT_PLATFORM_URL = 'https://platform.marc27.com';
+const MARC27_DEFAULT_PLATFORM_URL = 'https://platform.marc27.com/api/v1';
 
 /** Polling interval (seconds) for device-flow token requests. */
 const DEFAULT_POLL_INTERVAL = 5;
@@ -187,12 +187,11 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 	private async _requestDeviceCode(platformUrl: string, scope: string): Promise<Marc27DeviceCodeResponse> {
 		let response: Response;
 		try {
-			response = await fetch(`${platformUrl}/oauth/device/code`, {
+			response = await fetch(`${platformUrl}/auth/device/start`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					client_id: MARC27_CLIENT_ID,
-					scope,
 				}),
 			});
 		} catch (err) {
@@ -231,12 +230,10 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 
 			await new Promise(resolve => setTimeout(resolve, interval));
 
-			const response = await fetch(`${platformUrl}/oauth/token`, {
+			const response = await fetch(`${platformUrl}/auth/device/poll`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-					client_id: MARC27_CLIENT_ID,
 					device_code: deviceCode,
 				}),
 			});
