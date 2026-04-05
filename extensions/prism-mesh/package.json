@@ -1,0 +1,112 @@
+{
+  "name": "prism-mesh",
+  "displayName": "PRISM Mesh Dashboard",
+  "description": "Monitor PRISM compute mesh — nodes, jobs, and logs. Maps to prism node/job/mesh CLI commands.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onView:prism.mesh.nodes", "onView:prism.mesh.jobs"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "prism-mesh",
+          "title": "PRISM Mesh",
+          "icon": "media/mesh-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "prism-mesh": [
+        {
+          "id": "prism.mesh.nodes",
+          "name": "Nodes"
+        },
+        {
+          "id": "prism.mesh.jobs",
+          "name": "Jobs"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "prism.mesh.refresh",
+        "title": "PRISM Mesh: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "prism.mesh.nodeUp",
+        "title": "PRISM Mesh: Bring Node Up"
+      },
+      {
+        "command": "prism.mesh.nodeDown",
+        "title": "PRISM Mesh: Take Node Down"
+      },
+      {
+        "command": "prism.mesh.discover",
+        "title": "PRISM Mesh: Discover Peers"
+      },
+      {
+        "command": "prism.mesh.jobCancel",
+        "title": "PRISM Mesh: Cancel Job"
+      },
+      {
+        "command": "prism.mesh.jobRetry",
+        "title": "PRISM Mesh: Retry Job"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "prism.mesh.refresh",
+          "when": "view == prism.mesh.nodes || view == prism.mesh.jobs",
+          "group": "navigation"
+        },
+        {
+          "command": "prism.mesh.discover",
+          "when": "view == prism.mesh.nodes"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "prism.mesh.nodeUp",
+          "when": "viewItem == node-offline"
+        },
+        {
+          "command": "prism.mesh.nodeDown",
+          "when": "viewItem == node-online || viewItem == node-busy"
+        },
+        {
+          "command": "prism.mesh.jobCancel",
+          "when": "viewItem == job-running || viewItem == job-queued"
+        },
+        {
+          "command": "prism.mesh.jobRetry",
+          "when": "viewItem == job-failed"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PRISM Mesh",
+      "properties": {
+        "prism.mesh.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:3100",
+          "description": "PRISM server URL for mesh API"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

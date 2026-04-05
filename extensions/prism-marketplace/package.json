@@ -1,0 +1,100 @@
+{
+  "name": "prism-marketplace",
+  "displayName": "MARC27 Marketplace",
+  "description": "Browse, search, and install tools, workflows, models, and datasets from the MARC27 marketplace for PRISM.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "prism",
+    "marc27",
+    "marketplace",
+    "materials science",
+    "tools",
+    "workflows"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "prism-marketplace",
+          "title": "MARC27 Marketplace",
+          "icon": "media/marketplace-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "prism-marketplace": [
+        {
+          "type": "webview",
+          "id": "prism.marketplace.browse",
+          "name": "Browse"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "prism.marketplace.open",
+        "title": "PRISM: Open Marketplace"
+      },
+      {
+        "command": "prism.marketplace.search",
+        "title": "PRISM: Search Marketplace",
+        "icon": "$(search)"
+      },
+      {
+        "command": "prism.marketplace.install",
+        "title": "PRISM: Install from Marketplace",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "prism.marketplace.refresh",
+        "title": "PRISM: Refresh Marketplace",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "prism.marketplace.search",
+          "when": "view == prism.marketplace.browse",
+          "group": "navigation"
+        },
+        {
+          "command": "prism.marketplace.refresh",
+          "when": "view == prism.marketplace.browse",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MARC27 Marketplace",
+      "properties": {
+        "prism.marketplace.apiUrl": {
+          "type": "string",
+          "default": "https://api.marc27.com/api/v1",
+          "description": "Base URL for the MARC27 marketplace API"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
