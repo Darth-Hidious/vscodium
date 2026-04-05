@@ -53,7 +53,7 @@ export class WelcomePanel {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src https: data:; connect-src https://api.nasa.gov https://epic.gsfc.nasa.gov https://apod.nasa.gov;">
+    content="default-src 'none'; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src https: http: data:; connect-src https://api.nasa.gov https://epic.gsfc.nasa.gov https://apod.nasa.gov https://images-api.nasa.gov https://images-assets.nasa.gov https://www.esa.int https://cdn.eso.org;">
   <link rel="stylesheet" href="${cssUri}">
   <title>Welcome to PRISM</title>
 </head>
@@ -144,43 +144,76 @@ export class WelcomePanel {
     }
     document.getElementById('greeting').textContent = getGreeting();
 
-    // --- NASA APOD Image ---
+    // --- Image Loading: try NASA APOD first, then NASA Image Library, then fallback ---
     async function loadImage() {
-      const bg = document.getElementById('bg');
-      const titleEl = document.getElementById('image-title');
-      const creditEl = document.getElementById('image-credit');
+      var bg = document.getElementById('bg');
+      var titleEl = document.getElementById('image-title');
+      var creditEl = document.getElementById('image-credit');
 
+      // Helper to set background with smooth load
+      function setBg(url, title, credit) {
+        var img = new Image();
+        img.onload = function() {
+          bg.style.backgroundImage = 'url(' + url + ')';
+          bg.style.opacity = '1';
+        };
+        img.src = url;
+        titleEl.textContent = title;
+        creditEl.textContent = credit;
+      }
+
+      // Try NASA APOD (Astronomy Picture of the Day)
       try {
-        if (imageSource === 'nasa-apod') {
-          const resp = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&thumbs=true');
-          const data = await resp.json();
-
-          if (data.media_type === 'image') {
-            bg.style.backgroundImage = 'url(' + data.hdurl + ')';
-          } else if (data.thumbnail_url) {
-            bg.style.backgroundImage = 'url(' + data.thumbnail_url + ')';
-          }
-          titleEl.textContent = data.title || '';
-          creditEl.textContent = data.copyright ? '\\u00a9 ' + data.copyright : 'NASA Astronomy Picture of the Day';
-
-        } else if (imageSource === 'nasa-epic') {
-          const resp = await fetch('https://api.nasa.gov/EPIC/api/natural?api_key=DEMO_KEY');
-          const data = await resp.json();
-          if (data.length > 0) {
-            const img = data[0];
-            const d = img.date.split(' ')[0].split('-');
-            const url = 'https://epic.gsfc.nasa.gov/archive/natural/' + d[0] + '/' + d[1] + '/' + d[2] + '/jpg/' + img.image + '.jpg';
-            bg.style.backgroundImage = 'url(' + url + ')';
-            titleEl.textContent = 'Earth from DSCOVR';
-            creditEl.textContent = 'NASA EPIC Camera';
+        var apodResp = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&thumbs=true');
+        if (apodResp.ok) {
+          var apod = await apodResp.json();
+          if (apod.media_type === 'image' && apod.hdurl) {
+            setBg(apod.hdurl, apod.title, apod.copyright ? '\\u00a9 ' + apod.copyright : 'NASA APOD');
+            return;
+          } else if (apod.url) {
+            setBg(apod.url, apod.title, apod.copyright ? '\\u00a9 ' + apod.copyright : 'NASA APOD');
+            return;
           }
         }
-      } catch (e) {
-        // Fallback: dark gradient
-        bg.style.background = 'linear-gradient(135deg, #0D0E15 0%, #1a1b2e 50%, #0D0E15 100%)';
-        titleEl.textContent = 'PRISM';
-        creditEl.textContent = 'Materials Discovery Platform by MARC27';
-      }
+      } catch (e) { /* try next source */ }
+
+      // Try NASA Image Library — search for stunning space/materials images
+      var nasaQueries = ['nebula', 'galaxy', 'earth from space', 'hubble deep field', 'aurora', 'ISS', 'rocket launch', 'crystal structure', 'supernova', 'mars surface', 'saturn rings', 'solar flare'];
+      var query = nasaQueries[Math.floor(Math.random() * nasaQueries.length)];
+      try {
+        var nasaResp = await fetch('https://images-api.nasa.gov/search?q=' + encodeURIComponent(query) + '&media_type=image&page_size=20');
+        if (nasaResp.ok) {
+          var nasaData = await nasaResp.json();
+          var items = nasaData.collection.items;
+          if (items.length > 0) {
+            var pick = items[Math.floor(Math.random() * Math.min(items.length, 10))];
+            var nasaTitle = pick.data[0].title || query;
+            var nasaCredit = pick.data[0].photographer || pick.data[0].center || 'NASA';
+            // Get the image href from the links array
+            var imgLink = pick.links && pick.links[0] && pick.links[0].href;
+            if (imgLink) {
+              // Swap ~thumb for ~orig or ~large for HD
+              var hdLink = imgLink.replace('~thumb', '~large').replace('~small', '~large');
+              setBg(hdLink, nasaTitle, nasaCredit);
+              return;
+            }
+          }
+        }
+      } catch (e) { /* try next source */ }
+
+      // Try ESO (European Southern Observatory) — stunning space images
+      try {
+        var esoResp = await fetch('https://cdn.eso.org/images/screen/eso0932a.jpg');
+        if (esoResp.ok) {
+          setBg('https://cdn.eso.org/images/screen/eso0932a.jpg', 'The Milky Way', 'ESO / S. Brunier');
+          return;
+        }
+      } catch (e) { /* fallback */ }
+
+      // Final fallback
+      bg.style.background = 'linear-gradient(135deg, #0D0E15 0%, #0f1628 30%, #1a0a2e 60%, #0D0E15 100%)';
+      titleEl.textContent = 'PRISM';
+      creditEl.textContent = 'Materials Discovery Platform by MARC27';
     }
     loadImage();
 
