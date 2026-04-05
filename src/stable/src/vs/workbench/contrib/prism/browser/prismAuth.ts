@@ -185,14 +185,24 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 	// ── Device-flow OAuth ────────────────────────────────────────────────
 
 	private async _requestDeviceCode(platformUrl: string, scope: string): Promise<Marc27DeviceCodeResponse> {
-		const response = await fetch(`${platformUrl}/oauth/device/code`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				client_id: MARC27_CLIENT_ID,
-				scope,
-			}),
-		});
+		let response: Response;
+		try {
+			response = await fetch(`${platformUrl}/oauth/device/code`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					client_id: MARC27_CLIENT_ID,
+					scope,
+				}),
+			});
+		} catch (err) {
+			throw new Error(`Cannot reach MARC27 platform at ${platformUrl}. Check your connection or configure prism.auth.platformUrl in settings.`);
+		}
+
+		const contentType = response.headers.get('content-type') || '';
+		if (!contentType.includes('application/json')) {
+			throw new Error(`MARC27 platform at ${platformUrl} returned HTML instead of JSON. The OAuth endpoint may not be deployed yet. Contact your administrator.`);
+		}
 
 		if (!response.ok) {
 			const text = await response.text();
