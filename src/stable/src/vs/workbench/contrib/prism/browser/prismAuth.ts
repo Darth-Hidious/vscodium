@@ -90,8 +90,27 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 	}
 
 	async createSession(_scopes: string[], _options?: IAuthenticationProviderSessionOptions): Promise<AuthenticationSession> {
-		// Instead of implementing OAuth ourselves, tell the user to run prism login
-		// and open a terminal for them
+		// First, check if already logged in via CLI
+		try {
+			const existing = await this._readCliState();
+			if (existing && existing.access_token) {
+				const session: AuthenticationSession = {
+					id: existing.user_id || generateUuid(),
+					accessToken: existing.access_token,
+					account: {
+						label: existing.display_name || 'MARC27 User',
+						id: existing.user_id || 'unknown',
+					},
+					scopes: ['read', 'write', 'marketplace', 'mesh', 'billing'],
+				};
+				this._onDidChangeSessions.fire({ added: [session], removed: undefined, changed: undefined });
+				return session;
+			}
+		} catch {
+			// Fall through to terminal login
+		}
+
+		// Not logged in — open terminal with prism login
 		this._notificationService.notify({
 			severity: Severity.Info,
 			message: 'Run `prism login` in the terminal to sign in to MARC27.',
@@ -137,7 +156,7 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 			}
 		}
 
-		throw new Error('Login timed out. Run `prism login` in the terminal and try again.');
+		throw new Error('Login timed out — run `prism login` in the terminal and try again.');
 	}
 
 	async removeSession(_sessionId: string): Promise<void> {
@@ -153,21 +172,22 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 	private async _readCliState(): Promise<CliStateCredentials | null> {
 		const possiblePaths = this._getCliStatePaths();
 
-		for (const path of possiblePaths) {
+		for (const filePath of possiblePaths) {
 			try {
-				const uri = URI.file(path);
+				const uri = URI.file(filePath);
 				const content = await this._fileService.readFile(uri);
 				const json = JSON.parse(content.value.toString());
 
 				if (json.credentials && json.credentials.access_token) {
+					this._logService.info(`[MARC27 Auth] Found credentials at ${filePath}`);
 					return json.credentials;
 				}
 			} catch {
-				// File doesn't exist or can't be read — try next path
 				continue;
 			}
 		}
 
+		this._logService.info('[MARC27 Auth] No cli-state.json found');
 		return null;
 	}
 
