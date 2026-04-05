@@ -19,7 +19,7 @@ const MARC27_PROVIDER_LABEL = 'MARC27';
 const MARC27_SECRET_KEY = 'marc27.sessions';
 const MARC27_CLIENT_ID = 'prism-cli';
 const MARC27_DEFAULT_SCOPES = 'read write marketplace mesh billing';
-const MARC27_DEFAULT_PLATFORM_URL = 'https://platform.marc27.com/api/v1';
+const MARC27_DEFAULT_PLATFORM_URL = 'https://api.marc27.com/api/v1';
 
 /** Polling interval (seconds) for device-flow token requests. */
 const DEFAULT_POLL_INTERVAL = 5;

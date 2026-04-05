@@ -31,7 +31,7 @@
       "properties": {
         "prism.auth.platformUrl": {
           "type": "string",
-          "default": "https://platform.marc27.com",
+          "default": "https://api.marc27.com/api/v1",
           "description": "MARC27 Platform URL for authentication"
         }
       }

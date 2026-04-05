@@ -58,7 +58,7 @@ export class AuthService {
 
   async login(): Promise<void> {
     const config = vscode.workspace.getConfiguration('prism.auth');
-    const platformUrl = config.get<string>('platformUrl', 'https://platform.marc27.com');
+    const platformUrl = config.get<string>('platformUrl', 'https://api.marc27.com/api/v1');
 
     try {
       // Step 1: Request device code
