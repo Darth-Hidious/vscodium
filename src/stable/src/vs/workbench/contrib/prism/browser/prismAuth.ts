@@ -7,58 +7,23 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
-import { IAuthenticationService, IAuthenticationProvider, AuthenticationSession, AuthenticationSessionsChangeEvent, AuthenticationSessionAccount, IAuthenticationProviderSessionOptions } from '../../../services/authentication/common/authentication.js';
-import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IAuthenticationService, IAuthenticationProvider, AuthenticationSession, AuthenticationSessionsChangeEvent, IAuthenticationProviderSessionOptions } from '../../../services/authentication/common/authentication.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 const MARC27_PROVIDER_ID = 'marc27';
 const MARC27_PROVIDER_LABEL = 'MARC27';
-const MARC27_SECRET_KEY = 'marc27.sessions';
-const MARC27_CLIENT_ID = 'prism-cli';
-const MARC27_DEFAULT_SCOPES = 'read write marketplace mesh billing';
-const MARC27_DEFAULT_PLATFORM_URL = 'https://api.marc27.com/api/v1';
 
-/** Polling interval (seconds) for device-flow token requests. */
-const DEFAULT_POLL_INTERVAL = 5;
-
-/** Maximum time (ms) to wait for user to complete device-flow authorization. */
-const DEVICE_CODE_TIMEOUT_MS = 300_000; // 5 minutes
-
-interface Marc27DeviceCodeResponse {
-	device_code: string;
-	user_code: string;
-	verification_uri: string;
-	expires_in: number;
-	interval: number;
-}
-
-interface Marc27TokenResponse {
-	access_token: string;
-	refresh_token: string;
-	expires_in: number;
-}
-
-interface Marc27TokenErrorResponse {
-	error: string;
-}
-
-interface Marc27UserInfo {
-	username: string;
-	email: string;
-	org: { name: string };
-}
-
-interface StoredSessionData {
-	id: string;
-	accessToken: string;
-	refreshToken: string;
-	account: AuthenticationSessionAccount;
-	scopes: string[];
-}
-
+/**
+ * MARC27 authentication provider that reads credentials from the PRISM CLI's
+ * cli-state.json file. No separate auth flow — uses whatever `prism login`
+ * already stored.
+ *
+ * On macOS: ~/Library/Application Support/com.marc27.prism/cli-state.json
+ * On Linux: ~/.config/prism/cli-state.json
+ */
 export class Marc27AuthenticationProvider extends Disposable implements IAuthenticationProvider {
 
 	readonly id = MARC27_PROVIDER_ID;
@@ -68,32 +33,21 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 	private readonly _onDidChangeSessions = this._register(new Emitter<AuthenticationSessionsChangeEvent>());
 	readonly onDidChangeSessions: Event<AuthenticationSessionsChangeEvent> = this._onDidChangeSessions.event;
 
-	private _sessionsPromise: Promise<AuthenticationSession[]>;
-
 	constructor(
 		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
-		@ISecretStorageService private readonly _secretStorageService: ISecretStorageService,
-		@IOpenerService private readonly _openerService: IOpenerService,
+		@IFileService private readonly _fileService: IFileService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		super();
 
-		this._sessionsPromise = this._readSessions();
-
-		// Register ourselves as both a declared and active authentication provider.
+		// Register as auth provider
 		this._authenticationService.registerDeclaredAuthenticationProvider({
 			id: MARC27_PROVIDER_ID,
 			label: MARC27_PROVIDER_LABEL,
 		});
 		this._authenticationService.registerAuthenticationProvider(MARC27_PROVIDER_ID, this);
-
-		// React to secret storage changes (e.g. another window signed in).
-		this._register(this._secretStorageService.onDidChangeSecret(key => {
-			if (key === MARC27_SECRET_KEY) {
-				this._handleSecretChange();
-			}
-		}));
 
 		this._register({
 			dispose: () => {
@@ -101,270 +55,157 @@ export class Marc27AuthenticationProvider extends Disposable implements IAuthent
 			}
 		});
 
-		this._logService.info('[MARC27 Auth] Provider registered');
+		this._logService.info('[MARC27 Auth] Provider registered — reads from PRISM CLI cli-state.json');
 	}
 
-	// ── IAuthenticationProvider ───────────────────────────────────────────
-
-	async getSessions(scopes: string[] | undefined, _options: IAuthenticationProviderSessionOptions): Promise<readonly AuthenticationSession[]> {
-		const sessions = await this._sessionsPromise;
-		if (!scopes || scopes.length === 0) {
-			return sessions;
-		}
-		const requested = new Set(scopes);
-		return sessions.filter(s => s.scopes.every(scope => requested.has(scope)));
-	}
-
-	async createSession(scopes: string[], _options: IAuthenticationProviderSessionOptions): Promise<AuthenticationSession> {
-		this._logService.info('[MARC27 Auth] Creating session...');
-
-		const platformUrl = MARC27_DEFAULT_PLATFORM_URL;
-		const scopeString = scopes.length > 0 ? scopes.join(' ') : MARC27_DEFAULT_SCOPES;
-
-		// Step 1: Request device code
-		const deviceResponse = await this._requestDeviceCode(platformUrl, scopeString);
-
-		// Step 2: Show user code and open browser
-		this._notificationService.notify({
-			severity: Severity.Info,
-			message: `MARC27: Enter code **${deviceResponse.user_code}** at ${deviceResponse.verification_uri}`,
-			sticky: true,
-		});
-
-		this._openerService.open(URI.parse(deviceResponse.verification_uri));
-
-		// Step 3: Poll for token
-		const tokenResponse = await this._pollForToken(
-			platformUrl,
-			deviceResponse.device_code,
-			deviceResponse.interval || DEFAULT_POLL_INTERVAL,
-			deviceResponse.expires_in,
-		);
-
-		// Step 4: Get user info
-		const userInfo = await this._getUserInfo(platformUrl, tokenResponse.access_token);
-
-		const session: AuthenticationSession = {
-			id: generateUuid(),
-			accessToken: tokenResponse.access_token,
-			account: {
-				label: userInfo.username,
-				id: userInfo.email,
-			},
-			scopes: scopeString.split(' '),
-		};
-
-		// Step 5: Persist
-		const sessions = await this._sessionsPromise;
-		sessions.push(session);
-		await this._storeSessions(sessions, tokenResponse.refresh_token, session.id);
-
-		this._onDidChangeSessions.fire({ added: [session], removed: undefined, changed: undefined });
-
-		this._logService.info(`[MARC27 Auth] Session created for ${userInfo.username}`);
-		return session;
-	}
-
-	async removeSession(sessionId: string): Promise<void> {
-		this._logService.info(`[MARC27 Auth] Removing session ${sessionId}`);
-
-		const sessions = await this._sessionsPromise;
-		const index = sessions.findIndex(s => s.id === sessionId);
-		if (index === -1) {
-			this._logService.warn(`[MARC27 Auth] Session ${sessionId} not found`);
-			return;
-		}
-
-		const [removed] = sessions.splice(index, 1);
-		await this._storeSessionsRaw(sessions);
-		this._sessionsPromise = Promise.resolve(sessions);
-
-		this._onDidChangeSessions.fire({ added: undefined, removed: [removed], changed: undefined });
-	}
-
-	// ── Device-flow OAuth ────────────────────────────────────────────────
-
-	private async _requestDeviceCode(platformUrl: string, scope: string): Promise<Marc27DeviceCodeResponse> {
-		let response: Response;
+	async getSessions(_scopes?: string[], _options?: IAuthenticationProviderSessionOptions): Promise<readonly AuthenticationSession[]> {
 		try {
-			response = await fetch(`${platformUrl}/auth/device/start`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					client_id: MARC27_CLIENT_ID,
-				}),
-			});
-		} catch (err) {
-			throw new Error(`Cannot reach MARC27 platform at ${platformUrl}. Check your connection or configure prism.auth.platformUrl in settings.`);
-		}
-
-		const contentType = response.headers.get('content-type') || '';
-		if (!contentType.includes('application/json')) {
-			throw new Error(`MARC27 platform at ${platformUrl} returned HTML instead of JSON. The OAuth endpoint may not be deployed yet. Contact your administrator.`);
-		}
-
-		if (!response.ok) {
-			const text = await response.text();
-			throw new Error(`MARC27 device code request failed (${response.status}): ${text}`);
-		}
-
-		return response.json() as Promise<Marc27DeviceCodeResponse>;
-	}
-
-	private async _pollForToken(
-		platformUrl: string,
-		deviceCode: string,
-		intervalSeconds: number,
-		expiresInSeconds: number,
-	): Promise<Marc27TokenResponse> {
-		const deadline = Date.now() + Math.min(expiresInSeconds * 1000, DEVICE_CODE_TIMEOUT_MS);
-		const interval = Math.max(intervalSeconds, 1) * 1000;
-		const cts = new CancellationTokenSource();
-
-		this._register(cts);
-
-		while (Date.now() < deadline) {
-			if (cts.token.isCancellationRequested) {
-				throw new Error('MARC27 authentication cancelled');
-			}
-
-			await new Promise(resolve => setTimeout(resolve, interval));
-
-			const response = await fetch(`${platformUrl}/auth/device/poll`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					device_code: deviceCode,
-				}),
-			});
-
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`MARC27 token request failed (${response.status}): ${text}`);
-			}
-
-			const body = await response.json() as Marc27TokenResponse | Marc27TokenErrorResponse;
-
-			if ('error' in body) {
-				if (body.error === 'authorization_pending') {
-					continue;
-				}
-				if (body.error === 'slow_down') {
-					// Back off by adding 5 seconds per RFC 8628
-					await new Promise(resolve => setTimeout(resolve, 5000));
-					continue;
-				}
-				throw new Error(`MARC27 token error: ${body.error}`);
-			}
-
-			return body;
-		}
-
-		throw new Error('MARC27 device code expired — authentication timed out');
-	}
-
-	private async _getUserInfo(platformUrl: string, accessToken: string): Promise<Marc27UserInfo> {
-		const response = await fetch(`${platformUrl}/api/v1/me`, {
-			headers: { Authorization: `Bearer ${accessToken}` },
-		});
-
-		if (!response.ok) {
-			const text = await response.text();
-			throw new Error(`MARC27 user info request failed (${response.status}): ${text}`);
-		}
-
-		return response.json() as Promise<Marc27UserInfo>;
-	}
-
-	// ── Secret storage ───────────────────────────────────────────────────
-
-	private async _readSessions(): Promise<AuthenticationSession[]> {
-		try {
-			const raw = await this._secretStorageService.get(MARC27_SECRET_KEY);
-			if (!raw) {
+			const creds = await this._readCliState();
+			if (!creds) {
 				return [];
 			}
 
-			const stored: StoredSessionData[] = JSON.parse(raw);
-			return stored.map(s => ({
-				id: s.id,
-				accessToken: s.accessToken,
-				account: s.account,
-				scopes: s.scopes,
-			}));
-		} catch (e) {
-			this._logService.error(`[MARC27 Auth] Failed to read sessions: ${e}`);
+			// Check if token is expired
+			if (creds.expires_at) {
+				const expiry = new Date(creds.expires_at).getTime();
+				if (expiry < Date.now()) {
+					this._logService.info('[MARC27 Auth] Token expired — user should run prism login');
+					return [];
+				}
+			}
+
+			return [{
+				id: creds.user_id || generateUuid(),
+				accessToken: creds.access_token,
+				account: {
+					label: creds.display_name || 'MARC27 User',
+					id: creds.user_id || 'unknown',
+				},
+				scopes: ['read', 'write', 'marketplace', 'mesh', 'billing'],
+			}];
+		} catch (err) {
+			this._logService.warn(`[MARC27 Auth] Failed to read cli-state.json: ${err}`);
 			return [];
 		}
 	}
 
-	private async _storeSessions(
-		sessions: AuthenticationSession[],
-		refreshToken: string,
-		sessionId: string,
-	): Promise<void> {
-		// Read existing stored data to preserve refresh tokens for other sessions
-		let existingStored: StoredSessionData[] = [];
-		try {
-			const raw = await this._secretStorageService.get(MARC27_SECRET_KEY);
-			if (raw) {
-				existingStored = JSON.parse(raw);
-			}
-		} catch { /* empty */ }
-
-		const storedData: StoredSessionData[] = sessions.map(s => {
-			const existing = existingStored.find(e => e.id === s.id);
-			return {
-				id: s.id,
-				accessToken: s.accessToken,
-				refreshToken: s.id === sessionId ? refreshToken : (existing?.refreshToken ?? ''),
-				account: s.account,
-				scopes: [...s.scopes],
-			};
+	async createSession(_scopes: string[], _options?: IAuthenticationProviderSessionOptions): Promise<AuthenticationSession> {
+		// Instead of implementing OAuth ourselves, tell the user to run prism login
+		// and open a terminal for them
+		this._notificationService.notify({
+			severity: Severity.Info,
+			message: 'Run `prism login` in the terminal to sign in to MARC27.',
+			sticky: false,
 		});
 
-		await this._secretStorageService.set(MARC27_SECRET_KEY, JSON.stringify(storedData));
-		this._sessionsPromise = Promise.resolve(sessions);
-	}
-
-	private async _storeSessionsRaw(sessions: AuthenticationSession[]): Promise<void> {
-		// Preserve refresh tokens from existing storage when just removing a session
-		let existingStored: StoredSessionData[] = [];
+		// Open a terminal with prism login
 		try {
-			const raw = await this._secretStorageService.get(MARC27_SECRET_KEY);
-			if (raw) {
-				existingStored = JSON.parse(raw);
-			}
-		} catch { /* empty */ }
-
-		const storedData: StoredSessionData[] = sessions.map(s => {
-			const existing = existingStored.find(e => e.id === s.id);
-			return {
-				id: s.id,
-				accessToken: s.accessToken,
-				refreshToken: existing?.refreshToken ?? '',
-				account: s.account,
-				scopes: [...s.scopes],
-			};
-		});
-
-		await this._secretStorageService.set(MARC27_SECRET_KEY, JSON.stringify(storedData));
-	}
-
-	private async _handleSecretChange(): Promise<void> {
-		const previousSessions = await this._sessionsPromise;
-		this._sessionsPromise = this._readSessions();
-		const currentSessions = await this._sessionsPromise;
-
-		const added = currentSessions.filter(c => !previousSessions.some(p => p.id === c.id));
-		const removed = previousSessions.filter(p => !currentSessions.some(c => c.id === p.id));
-
-		if (added.length || removed.length) {
-			this._onDidChangeSessions.fire({
-				added: added.length ? added : undefined,
-				removed: removed.length ? removed : undefined,
-				changed: undefined,
+			await this._commandService.executeCommand('workbench.action.terminal.new');
+			// Small delay to let terminal initialize, then send the command
+			await new Promise(resolve => globalThis.setTimeout(resolve, 500));
+			await this._commandService.executeCommand('workbench.action.terminal.sendSequence', {
+				text: 'prism login\n'
 			});
+		} catch {
+			// Terminal might not be available — that's OK
 		}
+
+		// Wait for the user to complete login by polling cli-state.json
+		const maxWait = 300_000; // 5 minutes
+		const pollInterval = 2_000; // 2 seconds
+		const start = Date.now();
+
+		while (Date.now() - start < maxWait) {
+			await new Promise(resolve => globalThis.setTimeout(resolve, pollInterval));
+
+			const creds = await this._readCliState();
+			if (creds && creds.access_token) {
+				// Check it's a fresh token (not the one that was there before)
+				const session: AuthenticationSession = {
+					id: creds.user_id || generateUuid(),
+					accessToken: creds.access_token,
+					account: {
+						label: creds.display_name || 'MARC27 User',
+						id: creds.user_id || 'unknown',
+					},
+					scopes: ['read', 'write', 'marketplace', 'mesh', 'billing'],
+				};
+
+				this._onDidChangeSessions.fire({ added: [session], removed: undefined, changed: undefined });
+				this._logService.info(`[MARC27 Auth] Session loaded for ${creds.display_name}`);
+				return session;
+			}
+		}
+
+		throw new Error('Login timed out. Run `prism login` in the terminal and try again.');
 	}
+
+	async removeSession(_sessionId: string): Promise<void> {
+		this._notificationService.notify({
+			severity: Severity.Info,
+			message: 'Run `prism logout` in the terminal to sign out of MARC27.',
+			sticky: false,
+		});
+	}
+
+	// ── Read PRISM CLI credentials ──────────────────────────────────────
+
+	private async _readCliState(): Promise<CliStateCredentials | null> {
+		const possiblePaths = this._getCliStatePaths();
+
+		for (const path of possiblePaths) {
+			try {
+				const uri = URI.file(path);
+				const content = await this._fileService.readFile(uri);
+				const json = JSON.parse(content.value.toString());
+
+				if (json.credentials && json.credentials.access_token) {
+					return json.credentials;
+				}
+			} catch {
+				// File doesn't exist or can't be read — try next path
+				continue;
+			}
+		}
+
+		return null;
+	}
+
+	private _getCliStatePaths(): string[] {
+		const home = this._getHomeDir();
+		const paths: string[] = [];
+
+		if (process.platform === 'darwin') {
+			paths.push(`${home}/Library/Application Support/com.marc27.prism/cli-state.json`);
+		} else if (process.platform === 'win32') {
+			const appData = process.env['APPDATA'] || `${home}/AppData/Roaming`;
+			paths.push(`${appData}/com.marc27.prism/cli-state.json`);
+		} else {
+			// Linux / other
+			const configHome = process.env['XDG_CONFIG_HOME'] || `${home}/.config`;
+			paths.push(`${configHome}/prism/cli-state.json`);
+		}
+
+		// Fallback: check ~/.prism/ too
+		paths.push(`${home}/.prism/cli-state.json`);
+
+		return paths;
+	}
+
+	private _getHomeDir(): string {
+		return process.env['HOME'] || process.env['USERPROFILE'] || '/tmp';
+	}
+}
+
+interface CliStateCredentials {
+	access_token: string;
+	refresh_token: string;
+	platform_url: string;
+	user_id?: string;
+	display_name?: string;
+	org_id?: string;
+	org_name?: string;
+	project_id?: string;
+	project_name?: string;
+	expires_at?: string;
 }
