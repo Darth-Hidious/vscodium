@@ -81,10 +81,10 @@
     "configuration": {
       "title": "MARC27 Marketplace",
       "properties": {
-        "prism.marketplace.apiUrl": {
+        "prism.marketplace.serverUrl": {
           "type": "string",
-          "default": "https://api.marc27.com/api/v1",
-          "description": "Base URL for the MARC27 marketplace API"
+          "default": "http://127.0.0.1:7327",
+          "description": "URL of the local PRISM server for tool/workflow discovery"
         }
       }
     }

@@ -65,86 +65,84 @@ export class MarketplaceViewProvider implements vscode.WebviewViewProvider {
 		this._view?.webview.postMessage({ type: 'triggerInstall', id: identifier });
 	}
 
-	private _getApiUrl(): string {
+	private _getServerUrl(): string {
 		const config = vscode.workspace.getConfiguration('prism.marketplace');
-		return config.get<string>('apiUrl', 'https://api.marc27.com/api/v1');
+		return config.get<string>('serverUrl', 'http://127.0.0.1:7327');
 	}
 
 	private async _handleSearch(query: string, category: string): Promise<void> {
-		const apiUrl = this._getApiUrl();
-		const params = new URLSearchParams();
-		if (query) {
-			params.set('q', query);
-		}
-		if (category && category !== 'all') {
-			params.set('category', category);
-		}
+		const serverUrl = this._getServerUrl();
 
 		try {
-			const url = `${apiUrl}/marketplace/search?${params.toString()}`;
+			const params = new URLSearchParams();
+			if (query) { params.set('q', query); }
+			if (category && category !== 'all') { params.set('category', category); }
+
+			const url = `${serverUrl}/api/tools?${params.toString()}`;
 			const response = await fetch(url, {
 				headers: { 'Accept': 'application/json' },
-				signal: AbortSignal.timeout(10000)
+				signal: AbortSignal.timeout(10000),
 			});
 
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status}`);
 			}
 
-			const data = await response.json() as { items?: MarketplaceItem[] };
-			const items: MarketplaceItem[] = data.items ?? [];
+			const data = await response.json() as { tools?: MarketplaceItem[] };
+			const items: MarketplaceItem[] = (data.tools ?? []).map((t: any) => ({
+				id: t.name || t.id || '',
+				name: t.display_name || t.name || '',
+				description: t.description || '',
+				author: t.author || 'PRISM',
+				category: t.category || category || 'tools',
+				installs: t.usage_count || 0,
+				rating: t.rating || 0,
+				version: t.version || '0.1.0',
+			}));
 			this._view?.webview.postMessage({ type: 'searchResults', items });
 		} catch (_err) {
-			this._view?.webview.postMessage({
-				type: 'searchError',
-				message: 'Cannot connect to MARC27 marketplace. Check your network connection and API URL in settings.'
-			});
+			// Fallback: ask agent to list tools
+			try {
+				await vscode.commands.executeCommand('prism.agent.sendMessage',
+					`/tools${query ? ' ' + query : ''}`
+				);
+				this._view?.webview.postMessage({
+					type: 'searchResults',
+					items: [],
+					fallbackMessage: 'Results shown in Agent Chat — open the PRISM Agent panel to see available tools.',
+				});
+			} catch {
+				this._view?.webview.postMessage({
+					type: 'searchError',
+					message: 'PRISM server not running. Start it with: prism node start',
+				});
+			}
 		}
 	}
 
 	private async _handleInstall(id: string, name: string): Promise<void> {
 		const confirm = await vscode.window.showInformationMessage(
-			`Install "${name}" from MARC27 Marketplace?`,
+			`Install "${name}" from PRISM?`,
 			{ modal: true },
 			'Install'
 		);
-
-		if (confirm !== 'Install') {
-			return;
-		}
-
-		const apiUrl = this._getApiUrl();
+		if (confirm !== 'Install') { return; }
 
 		try {
-			const response = await fetch(`${apiUrl}/marketplace/install`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Accept': 'application/json'
-				},
-				body: JSON.stringify({ id }),
-				signal: AbortSignal.timeout(30000)
-			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}`);
-			}
-
-			vscode.window.showInformationMessage(`Successfully installed "${name}".`);
+			await vscode.commands.executeCommand('prism.agent.sendMessage', `/tools install ${id}`);
+			vscode.window.showInformationMessage(`Installing "${name}" via PRISM agent — check Agent Chat for progress.`);
 			this._view?.webview.postMessage({ type: 'installComplete', id });
-		} catch (_err) {
-			vscode.window.showErrorMessage(
-				`Failed to install "${name}". Check your connection to the MARC27 marketplace.`
-			);
+		} catch {
+			vscode.window.showErrorMessage(`Failed to install "${name}".`);
 			this._view?.webview.postMessage({ type: 'installFailed', id });
 		}
 	}
 
 	private async _handleInfo(id: string): Promise<void> {
-		const apiUrl = this._getApiUrl();
+		const serverUrl = this._getServerUrl();
 
 		try {
-			const response = await fetch(`${apiUrl}/marketplace/info/${encodeURIComponent(id)}`, {
+			const response = await fetch(`${serverUrl}/api/tools/${encodeURIComponent(id)}`, {
 				headers: { 'Accept': 'application/json' },
 				signal: AbortSignal.timeout(10000)
 			});
