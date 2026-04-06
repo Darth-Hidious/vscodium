@@ -5,7 +5,6 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IStatusbarService } from '../../../services/statusbar/browser/statusbar.js';
 
 /**
  * Stub — auth status bar is now handled entirely by the prism-auth extension.
@@ -15,7 +14,6 @@ import { IStatusbarService } from '../../../services/statusbar/browser/statusbar
 export class Marc27AuthenticationProvider extends Disposable {
 
 	constructor(
-		@IStatusbarService private readonly _statusbarService: IStatusbarService,
 		@ILogService private readonly _logService: ILogService,
 	) {
 		super();
