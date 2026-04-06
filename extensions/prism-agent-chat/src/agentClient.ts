@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { execFile, spawn, ChildProcess } from 'child_process';
 import type { AgentEvent, ConnectionState } from './types';
 
@@ -166,14 +167,16 @@ export class AgentClient {
 		return { type, ...p } as unknown as AgentEvent;
 	}
 
-	private _findPrismBinary(callback: (path: string | null) => void): void {
+	private _findPrismBinary(callback: (binPath: string | null) => void): void {
 		const home = process.env['HOME'] || process.env['USERPROFILE'] || '';
 
-		// Look inside the app bundle first (bundled binary), then system locations
+		// On macOS, vscode.env.appRoot gives us the app's Resources/app directory.
+		// The bundled binary is at Resources/prism-bin/prism (sibling of app/).
+		const appRoot = vscode.env.appRoot; // e.g. .../PRISM Desktop.app/Contents/Resources/app
+		const bundledBin = path.resolve(appRoot, '..', 'prism-bin', 'prism');
+
 		const candidates = [
-			// Bundled inside the .app — this is the primary location
-			`${process.execPath.replace(/\/[^/]+$/, '/../Resources/prism-bin/prism')}`,
-			// Fallback to system installations
+			bundledBin,
 			`${home}/.prism/bin/prism`,
 			`${home}/.cargo/bin/prism`,
 			'/usr/local/bin/prism',
