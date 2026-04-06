@@ -47,12 +47,25 @@ export class WelcomePanel {
 			} else if (msg.type === 'command' && msg.command) {
 				vscode.commands.executeCommand(msg.command);
 			} else if (msg.type === 'agent-message' && msg.text) {
-				// Forward to the real PRISM agent
-				vscode.commands.executeCommand('prism.agent.openFloatingChat');
-				// Small delay then send the message
-				globalThis.setTimeout(() => {
-					vscode.commands.executeCommand('prism.agent.sendMessage', msg.text);
-				}, 500);
+				// Send via registered command (now exists in prism-agent-chat)
+				vscode.commands.executeCommand('prism.agent.sendMessage', msg.text);
+
+				// Subscribe to agent events to stream response back to welcome chat
+				const agentExt = vscode.extensions.getExtension('marc27.prism-agent-chat');
+				if (agentExt?.isActive && agentExt.exports) {
+					const api = agentExt.exports as { onEvent: vscode.Event<{ type: string; text?: string }> };
+					// One-shot listener: collect text deltas until turn.complete
+					let responseText = '';
+					const disposable = api.onEvent((event: { type: string; text?: string }) => {
+						if (event.type === 'text.delta' && event.text) {
+							responseText += event.text;
+							this.panel.webview.postMessage({ type: 'agent-response-delta', text: responseText });
+						} else if (event.type === 'turn.complete' || event.type === 'error') {
+							this.panel.webview.postMessage({ type: 'agent-response-done', text: responseText });
+							disposable.dispose();
+						}
+					});
+				}
 			}
 		});
 
@@ -404,6 +417,22 @@ export class WelcomePanel {
           document.getElementById('image-title').textContent = msg.title || '';
           document.getElementById('image-credit').textContent = msg.credit || '';
         }
+        if (msg.type === 'agent-response-delta') {
+          var el = document.getElementById('streaming-response');
+          if (el) {
+            el.textContent = msg.text;
+            el.style.opacity = '1';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          }
+        } else if (msg.type === 'agent-response-done') {
+          var doneEl = document.getElementById('streaming-response');
+          if (doneEl) {
+            doneEl.id = '';
+            if (msg.text) { doneEl.textContent = msg.text; }
+            else { doneEl.textContent = 'Done.'; }
+            doneEl.style.opacity = '1';
+          }
+        }
       });
 
       // ── Agent bubble → open chat ──
@@ -427,27 +456,24 @@ export class WelcomePanel {
         var text = chatInput.value.trim();
         if (!text) return;
 
-        // Add user message
         var userMsg = document.createElement('div');
         userMsg.className = 'chat-msg user';
         userMsg.textContent = text;
         chatMessages.appendChild(userMsg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
-        // Clear input
         chatInput.value = '';
         chatInput.style.height = 'auto';
 
-        // Send to extension host → routes to prism agent
         vscode.postMessage({ type: 'agent-message', text: text });
 
-        // Show typing indicator
-        var typing = document.createElement('div');
-        typing.className = 'chat-msg agent';
-        typing.id = 'typing';
-        typing.textContent = 'Thinking...';
-        typing.style.opacity = '0.4';
-        chatMessages.appendChild(typing);
+        // Streaming response placeholder (NOT "Thinking...")
+        var agentMsg = document.createElement('div');
+        agentMsg.className = 'chat-msg agent';
+        agentMsg.id = 'streaming-response';
+        agentMsg.textContent = '';
+        agentMsg.style.opacity = '0.6';
+        chatMessages.appendChild(agentMsg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
       }
 
