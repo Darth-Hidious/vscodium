@@ -19,7 +19,7 @@
     ],
     "configurationDefaults": {
       "workbench.colorTheme": "PRISM Dark",
-      "workbench.activityBar.location": "top",
+      "workbench.activityBar.location": "default",
       "workbench.startupEditor": "none",
       "editor.minimap.enabled": false,
       "editor.bracketPairColorization.enabled": true,
