@@ -58,31 +58,38 @@ export class MaterialsPanelProvider implements vscode.WebviewViewProvider {
     const composition = msg.composition as string;
     const filters = msg.filters as Record<string, unknown> | undefined;
 
-    // Show progress
     vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: 'Searching materials...' },
       async () => {
-        // In a full build this calls the PRISM server.
-        // For now, confirm the query and show what would be sent.
-        const filterStr = filters
-          ? Object.entries(filters)
-              .filter(([, v]) => v !== null && v !== undefined && v !== '')
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(', ')
-          : '';
+        // Build a structured query for the PRISM agent
+        let query = `Search for materials with composition: ${composition}`;
+        if (filters) {
+          const filterParts = Object.entries(filters)
+            .filter(([, v]) => v !== null && v !== undefined && v !== '')
+            .map(([k, v]) => `${k}: ${v}`);
+          if (filterParts.length > 0) {
+            query += `\nProperty filters: ${filterParts.join(', ')}`;
+          }
+        }
+        query += '\nReturn a structured list of matching materials with their key properties.';
 
-        const detail = filterStr
-          ? `Composition: ${composition}\nFilters: ${filterStr}`
-          : `Composition: ${composition}`;
-
-        vscode.window.showInformationMessage(`PRISM search:\n${detail}`);
-
-        // Send results back to the webview when the server is wired
-        this.postToWebview({
-          type: 'search-results',
-          query: composition,
-          results: [],
-        });
+        // Send to PRISM agent
+        try {
+          await vscode.commands.executeCommand('prism.agent.sendMessage', query);
+          this.postToWebview({
+            type: 'search-results',
+            query: composition,
+            results: [],
+            agentMessage: 'Results are streaming in the PRISM Agent panel.',
+          });
+        } catch {
+          vscode.window.showErrorMessage('PRISM agent not available. Start it from the Agent Chat panel.');
+          this.postToWebview({
+            type: 'search-results',
+            query: composition,
+            results: [],
+          });
+        }
       },
     );
   }
