@@ -1,0 +1,35 @@
+{
+  "name": "prism-theme",
+  "displayName": "PRISM Dark",
+  "description": "The default dark theme for PRISM Desktop — deep backgrounds, gold accents, built for materials science.",
+  "version": "0.1.0",
+  "publisher": "marc27",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "label": "PRISM Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/prism-dark.json"
+      }
+    ],
+    "configurationDefaults": {
+      "workbench.colorTheme": "PRISM Dark",
+      "workbench.activityBar.location": "top",
+      "workbench.startupEditor": "none",
+      "editor.minimap.enabled": false,
+      "editor.bracketPairColorization.enabled": true,
+      "editor.fontFamily": "'IBM Plex Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
+      "editor.fontSize": 13,
+      "editor.lineHeight": 1.6,
+      "terminal.integrated.fontFamily": "'IBM Plex Mono', Menlo, monospace",
+      "window.title": "PRISM Desktop${separator}${activeEditorShort}",
+      "window.titleBarStyle": "custom",
+      "breadcrumbs.enabled": false
+    }
+  }
+}
