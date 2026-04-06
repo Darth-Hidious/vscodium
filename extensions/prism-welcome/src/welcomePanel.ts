@@ -47,14 +47,11 @@ export class WelcomePanel {
 			} else if (msg.type === 'command' && msg.command) {
 				vscode.commands.executeCommand(msg.command);
 			} else if (msg.type === 'agent-message' && msg.text) {
-				// Send via registered command (now exists in prism-agent-chat)
 				vscode.commands.executeCommand('prism.agent.sendMessage', msg.text);
 
-				// Subscribe to agent events to stream response back to welcome chat
 				const agentExt = vscode.extensions.getExtension('marc27.prism-agent-chat');
 				if (agentExt?.isActive && agentExt.exports) {
 					const api = agentExt.exports as { onEvent: vscode.Event<{ type: string; text?: string }> };
-					// One-shot listener: collect text deltas until turn.complete
 					let responseText = '';
 					const disposable = api.onEvent((event: { type: string; text?: string }) => {
 						if (event.type === 'text.delta' && event.text) {
@@ -73,7 +70,6 @@ export class WelcomePanel {
 	}
 
 	private async loadAndSendImage(): Promise<void> {
-		// Try NASA APOD
 		try {
 			const resp = await fetch('https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&thumbs=true');
 			if (resp.ok) {
@@ -90,7 +86,6 @@ export class WelcomePanel {
 			}
 		} catch { /* next */ }
 
-		// Try NASA Image Library
 		const queries = ['nebula', 'galaxy', 'earth from space', 'hubble deep field', 'aurora borealis', 'international space station', 'rocket launch', 'supernova', 'saturn rings', 'solar flare'];
 		const query = queries[Math.floor(Math.random() * queries.length)];
 		try {
@@ -126,213 +121,286 @@ export class WelcomePanel {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src https: http: data:;">
+    content="default-src 'none'; style-src 'nonce-${nonce}' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'nonce-${nonce}'; img-src https: http: data:;">
   <title>Welcome to PRISM</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@200;300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
   <style nonce="${nonce}">
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@200;300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       width: 100vw; height: 100vh; overflow: hidden;
-      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
       color: #fff; user-select: none;
+      background: #0a0b10;
     }
 
-    /* ── Background image ── */
+    /* ════════════════════════════════════════════
+       BACKGROUND IMAGE
+       ════════════════════════════════════════════ */
     #bg {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      position: fixed; inset: 0;
       background-size: cover; background-position: center;
-      background-color: #0D0E15;
-      transition: opacity 1.5s ease, filter 0.6s ease;
-      opacity: 0; z-index: 0;
+      background-color: #0a0b10;
+      opacity: 0;
+      transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
     }
     #bg.loaded { opacity: 1; }
-    body.chat-open #bg { filter: blur(20px) brightness(0.4); }
 
-    /* ── Vignette ── */
+    /* Subtle vignette — always present */
     #vignette {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.55) 100%);
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%);
       z-index: 1; pointer-events: none;
-      transition: opacity 0.4s ease;
-    }
-    body.chat-open #vignette { opacity: 0; }
-
-    /* ── Welcome content (fades out when chat opens) ── */
-    #welcome-content {
-      transition: opacity 0.4s ease, transform 0.4s ease;
-      z-index: 10; position: relative;
-    }
-    body.chat-open #welcome-content {
-      opacity: 0; pointer-events: none; transform: scale(0.95);
     }
 
-    #top-bar {
-      position: fixed; top: 0; left: 0; right: 0;
-      padding: 28px 40px; text-align: center; z-index: 10;
+    /* ════════════════════════════════════════════
+       GAUSSIAN OVERLAY — activated on chat focus
+       ════════════════════════════════════════════ */
+    #gaussian-overlay {
+      position: fixed; inset: 0;
+      background: rgba(10, 11, 16, 0.55);
+      backdrop-filter: blur(60px) saturate(1.2) brightness(0.6);
+      -webkit-backdrop-filter: blur(60px) saturate(1.2) brightness(0.6);
+      z-index: 5;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    #greeting {
-      font-size: 15px; font-weight: 300; letter-spacing: 0.3px;
-      opacity: 0.85; text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+    body.chat-active #gaussian-overlay {
+      opacity: 1;
+      pointer-events: all;
     }
 
-    #center {
-      position: fixed; top: 45%; left: 50%;
+    /* ════════════════════════════════════════════
+       AMBIENT CONTENT — clock, quote, image info
+       ════════════════════════════════════════════ */
+    #ambient {
+      position: fixed; inset: 0;
+      z-index: 10; pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    body.chat-active #ambient {
+      opacity: 0;
+      transform: scale(0.97) translateY(-10px);
+    }
+
+    #clock-area {
+      position: absolute;
+      top: 40%; left: 50%;
       transform: translate(-50%, -50%);
-      text-align: center; z-index: 10;
+      text-align: center;
     }
     #clock {
-      font-size: 120px; font-weight: 200; letter-spacing: -4px;
-      line-height: 1; text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+      font-size: 110px; font-weight: 200; letter-spacing: -3px;
+      line-height: 1;
+      text-shadow: 0 2px 30px rgba(0,0,0,0.5);
     }
     #date-line {
-      font-size: 16px; font-weight: 300; margin-top: 8px;
-      opacity: 0.7; text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+      font-size: 15px; font-weight: 300; margin-top: 10px;
+      opacity: 0.6;
+      text-shadow: 0 1px 10px rgba(0,0,0,0.5);
     }
-
+    #greeting {
+      position: absolute; top: 28px; left: 0; right: 0;
+      text-align: center;
+      font-size: 14px; font-weight: 300; letter-spacing: 0.3px;
+      opacity: 0.7;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+    }
     #image-info {
-      position: fixed; bottom: 24px; left: 40px; z-index: 10; max-width: 400px;
+      position: absolute; bottom: 80px; left: 40px;
+      max-width: 350px;
     }
-    #image-title { font-size: 14px; font-weight: 500; opacity: 0.9; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
-    #image-credit { font-size: 11px; font-weight: 300; opacity: 0.6; }
+    #image-title {
+      font-size: 13px; font-weight: 500; opacity: 0.8;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    }
+    #image-credit {
+      font-size: 11px; font-weight: 300; opacity: 0.5; margin-top: 2px;
+    }
 
-    /* ── Agent bubble (glassmorphic, bottom-right) ── */
-    #agent-bubble {
-      position: fixed; bottom: 28px; right: 28px; z-index: 20;
-      width: 56px; height: 56px; border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.2);
-      display: flex; align-items: center; justify-content: center;
+    /* ════════════════════════════════════════════
+       CHAT LAYER — messages + pill input
+       ════════════════════════════════════════════ */
+    #chat-layer {
+      position: fixed; inset: 0;
+      z-index: 20;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding-bottom: 48px;
+      pointer-events: none;
+    }
+
+    /* Messages container — hidden until chat active */
+    #messages {
+      width: 640px; max-width: 88vw;
+      max-height: 0;
+      overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column;
+      gap: 10px;
+      padding: 0 4px;
+      margin-bottom: 16px;
+      transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.4s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    body.chat-active #messages {
+      max-height: calc(100vh - 180px);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .msg {
+      max-width: 85%;
+      line-height: 1.65; font-size: 14px;
+      animation: msgSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      word-wrap: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: rgba(251, 191, 36, 0.14);
+      border: 1px solid rgba(251, 191, 36, 0.22);
+      padding: 10px 16px;
+      border-radius: 18px 18px 6px 18px;
+    }
+    .msg.agent {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 16px;
+      border-radius: 18px 18px 18px 6px;
+    }
+    .msg.hint {
+      align-self: center;
+      opacity: 0.35; font-size: 13px; font-weight: 300;
+      text-align: center;
+      padding: 24px 0 8px;
+      background: none; border: none;
+    }
+
+    @keyframes msgSlide {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ════════════════════════════════════════════
+       THE PILL — glassmorphic input bar
+       ════════════════════════════════════════════ */
+    #pill {
+      width: 580px; max-width: 85vw;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(24px) saturate(1.3);
+      -webkit-backdrop-filter: blur(24px) saturate(1.3);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 26px;
+      display: flex; align-items: flex-end;
+      padding: 6px 6px 6px 20px;
+      gap: 8px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: auto;
+    }
+    #pill:focus-within {
+      background: rgba(255, 255, 255, 0.10);
+      border-color: rgba(251, 191, 36, 0.35);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4),
+                  0 0 0 1px rgba(251, 191, 36, 0.15),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    body.chat-active #pill {
+      width: 640px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    #pill-input {
+      flex: 1;
+      background: none; border: none; outline: none;
+      color: #fff;
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      font-size: 15px; font-weight: 400;
+      line-height: 1.5;
+      resize: none;
+      max-height: 120px;
+      padding: 8px 0;
+    }
+    #pill-input::placeholder {
+      color: rgba(255, 255, 255, 0.30);
+      font-weight: 300;
+    }
+
+    #pill-send {
+      width: 40px; height: 40px;
+      border-radius: 20px;
+      background: rgba(251, 191, 36, 0.18);
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      color: #fbbf24;
+      font-size: 16px;
       cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-    }
-    #agent-bubble:hover {
-      background: rgba(255,255,255,0.2);
-      transform: scale(1.08);
-      box-shadow: 0 6px 32px rgba(0,0,0,0.4);
-    }
-    #agent-bubble svg { width: 26px; height: 26px; }
-    body.chat-open #agent-bubble { display: none; }
-
-    /* ── Chat overlay (glassmorphic canvas) ── */
-    #chat-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 30;
       display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    body.chat-active #pill-send,
+    #pill:focus-within #pill-send {
+      opacity: 1;
+      transform: scale(1);
+    }
+    #pill-send:hover {
+      background: rgba(251, 191, 36, 0.3);
+      transform: scale(1.05);
+    }
+
+    /* ════════════════════════════════════════════
+       PRISM LOGO WATERMARK — subtle bottom-right
+       ════════════════════════════════════════════ */
+    #watermark {
+      position: fixed; bottom: 14px; right: 24px;
+      z-index: 2;
+      font-size: 12px; font-weight: 400;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      opacity: 0.2;
       transition: opacity 0.4s ease;
     }
-    body.chat-open #chat-overlay { opacity: 1; pointer-events: all; }
+    body.chat-active #watermark { opacity: 0.1; }
 
-    #chat-canvas {
-      width: 580px; max-width: 90vw;
-      max-height: 80vh;
-      background: rgba(13, 14, 21, 0.65);
-      backdrop-filter: blur(40px) saturate(1.4);
-      -webkit-backdrop-filter: blur(40px) saturate(1.4);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 16px 64px rgba(0,0,0,0.5);
-      transform: translateY(20px);
-      transition: transform 0.4s ease;
-    }
-    body.chat-open #chat-canvas { transform: translateY(0); }
-
-    /* Chat header */
-    #chat-header {
-      padding: 16px 20px;
-      display: flex; align-items: center; gap: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    #chat-header .logo { font-size: 18px; opacity: 0.8; }
-    #chat-header .title { font-size: 14px; font-weight: 500; flex: 1; }
-    #chat-close {
-      width: 28px; height: 28px; border-radius: 8px;
-      background: rgba(255,255,255,0.08); border: none;
-      color: #fff; font-size: 16px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.2s;
-    }
-    #chat-close:hover { background: rgba(255,255,255,0.15); }
-
-    /* Chat messages */
-    #chat-messages {
-      flex: 1; overflow-y: auto; padding: 16px 20px;
-      display: flex; flex-direction: column; gap: 12px;
-      min-height: 200px; max-height: 50vh;
-    }
-    .chat-msg {
-      max-width: 90%; line-height: 1.6; font-size: 14px;
-      animation: fadeIn 0.3s ease;
-    }
-    .chat-msg.user {
-      align-self: flex-end;
-      background: rgba(255,255,255,0.1);
-      padding: 10px 14px; border-radius: 14px 14px 4px 14px;
-    }
-    .chat-msg.agent {
-      align-self: flex-start;
-      padding: 4px 0; opacity: 0.9;
-    }
-    .chat-msg.hint {
-      align-self: center; opacity: 0.4; font-size: 13px;
-      text-align: center; padding: 20px 0;
+    /* ════════════════════════════════════════════
+       SCROLLBAR
+       ════════════════════════════════════════════ */
+    #messages::-webkit-scrollbar { width: 3px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
     }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* Chat input */
-    #chat-input-area {
-      padding: 12px 16px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      display: flex; gap: 8px; align-items: flex-end;
-    }
-    #chat-input {
-      flex: 1; resize: none;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 10px 14px;
-      color: #fff; font-family: 'IBM Plex Sans', system-ui, sans-serif;
-      font-size: 14px; line-height: 1.4;
-      outline: none; max-height: 120px;
-    }
-    #chat-input:focus { border-color: rgba(251, 191, 36, 0.5); }
-    #chat-input::placeholder { color: rgba(255,255,255,0.3); }
-    #chat-send {
-      width: 38px; height: 38px; border-radius: 10px;
-      background: rgba(251, 191, 36, 0.2);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      color: #fbbf24; font-size: 16px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
-      flex-shrink: 0;
-    }
-    #chat-send:hover { background: rgba(251, 191, 36, 0.35); }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
-
+    /* ════════════════════════════════════════════
+       RESPONSIVE
+       ════════════════════════════════════════════ */
     @media (max-width: 700px) {
       #clock { font-size: 72px; }
-      #chat-canvas { width: 95vw; max-height: 90vh; border-radius: 16px; }
+      #pill, body.chat-active #pill { max-width: 95vw; }
+      #messages { max-width: 95vw; }
+      #chat-layer { padding-bottom: 24px; }
     }
   </style>
 </head>
 <body>
+  <!-- Background -->
   <div id="bg"></div>
   <div id="vignette"></div>
+  <div id="gaussian-overlay"></div>
 
-  <div id="welcome-content">
-    <div id="top-bar"><span id="greeting"></span></div>
-    <div id="center">
+  <!-- Ambient content (fades on chat) -->
+  <div id="ambient">
+    <div id="greeting"></div>
+    <div id="clock-area">
       <div id="clock"></div>
       <div id="date-line"></div>
     </div>
@@ -342,165 +410,181 @@ export class WelcomePanel {
     </div>
   </div>
 
-  <!-- Agent bubble -->
-  <div id="agent-bubble" title="Talk to PRISM Agent">
-    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5">
-      <path d="M12 3 L3 18 L21 18 Z" stroke-linejoin="round"/>
-      <line x1="1" y1="11" x2="6" y2="11"/>
-      <line x1="15" y1="8" x2="23" y2="5" opacity="0.7"/>
-      <line x1="15" y1="11" x2="23" y2="11" opacity="0.5"/>
-      <line x1="15" y1="14" x2="23" y2="17" opacity="0.3"/>
-    </svg>
-  </div>
-
-  <!-- Chat overlay -->
-  <div id="chat-overlay">
-    <div id="chat-canvas">
-      <div id="chat-header">
-        <span class="logo">&#9671;</span>
-        <span class="title">PRISM Agent</span>
-        <button id="chat-close">&#10005;</button>
-      </div>
-      <div id="chat-messages">
-        <div class="chat-msg hint">Ask me about materials, simulations, data, or anything science.</div>
-      </div>
-      <div id="chat-input-area">
-        <textarea id="chat-input" rows="1" placeholder="Ask the PRISM agent..."></textarea>
-        <button id="chat-send">&#9654;</button>
-      </div>
+  <!-- Chat layer: messages + pill -->
+  <div id="chat-layer">
+    <div id="messages">
+      <div class="msg hint">Ask about materials, simulations, or anything science.</div>
+    </div>
+    <div id="pill">
+      <textarea id="pill-input" rows="1" placeholder="Ask PRISM anything..."></textarea>
+      <button id="pill-send" title="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
     </div>
   </div>
 
+  <!-- Watermark -->
+  <div id="watermark">PRISM</div>
+
   <script nonce="${nonce}">
-    (function() {
-      var vscode = acquireVsCodeApi();
-      var bg = document.getElementById('bg');
+  (function() {
+    var vscode = acquireVsCodeApi();
+    var bg = document.getElementById('bg');
+    var pillInput = document.getElementById('pill-input');
+    var pillSend = document.getElementById('pill-send');
+    var messages = document.getElementById('messages');
+    var isActive = false;
 
-      // ── Clock ──
-      function updateClock() {
-        var now = new Date();
-        document.getElementById('clock').textContent =
-          String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-        document.getElementById('date-line').textContent =
-          now.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-      }
-      updateClock();
-      setInterval(updateClock, 10000);
+    // ── Clock ──
+    function tick() {
+      var now = new Date();
+      document.getElementById('clock').textContent =
+        String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+      document.getElementById('date-line').textContent =
+        now.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    }
+    tick();
+    setInterval(tick, 10000);
 
-      // ── Greeting ──
-      var quotes = [
-        "The universe is under no obligation to make sense to you.",
-        "Somewhere, something incredible is waiting to be known.",
-        "The atoms of our bodies are traceable to stars that manufactured them.",
-        "We are a way for the universe to know itself.",
-        "Materials are the language of engineering.",
-        "The next breakthrough is hidden in the periodic table.",
-        "Look up at the stars and not down at your feet.",
-        "Every atom in your body came from a star that exploded.",
-      ];
-      var h = new Date().getHours();
-      document.getElementById('greeting').textContent = (h < 5 || h >= 22)
-        ? "It\\u2019s late \\u2014 time to rest."
-        : quotes[Math.floor(Math.random() * quotes.length)];
+    // ── Greeting ──
+    var quotes = [
+      "The universe is under no obligation to make sense to you.",
+      "Somewhere, something incredible is waiting to be known.",
+      "The atoms of our bodies are traceable to stars that manufactured them.",
+      "We are a way for the universe to know itself.",
+      "Materials are the language of engineering.",
+      "The next breakthrough is hidden in the periodic table.",
+      "Look up at the stars and not down at your feet.",
+      "Every atom in your body came from a star that exploded."
+    ];
+    document.getElementById('greeting').textContent =
+      quotes[Math.floor(Math.random() * quotes.length)];
 
-      // ── Image from extension host ──
-      window.addEventListener('message', function(event) {
-        var msg = event.data;
-        if (msg.type === 'image') {
-          if (msg.url) {
-            bg.style.backgroundImage = 'url(' + msg.url + ')';
-            bg.classList.add('loaded');
-          } else {
-            bg.style.background = 'linear-gradient(135deg, #0D0E15 0%, #0f1628 30%, #1a0a2e 60%, #0D0E15 100%)';
-            bg.classList.add('loaded');
-          }
-          document.getElementById('image-title').textContent = msg.title || '';
-          document.getElementById('image-credit').textContent = msg.credit || '';
+    // ── Image from host ──
+    window.addEventListener('message', function(event) {
+      var msg = event.data;
+
+      if (msg.type === 'image') {
+        if (msg.url) {
+          bg.style.backgroundImage = 'url(' + msg.url + ')';
+          bg.classList.add('loaded');
+        } else {
+          bg.style.background = 'linear-gradient(135deg, #0a0b10 0%, #0f1628 30%, #1a0a2e 60%, #0a0b10 100%)';
+          bg.classList.add('loaded');
         }
-        if (msg.type === 'agent-response-delta') {
-          var el = document.getElementById('streaming-response');
-          if (el) {
-            el.textContent = msg.text;
-            el.style.opacity = '1';
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-          }
-        } else if (msg.type === 'agent-response-done') {
-          var doneEl = document.getElementById('streaming-response');
-          if (doneEl) {
-            doneEl.id = '';
-            if (msg.text) { doneEl.textContent = msg.text; }
-            else { doneEl.textContent = 'Done.'; }
-            doneEl.style.opacity = '1';
-          }
-        }
-      });
-
-      // ── Agent bubble → open chat ──
-      var bubble = document.getElementById('agent-bubble');
-      var chatClose = document.getElementById('chat-close');
-      var chatInput = document.getElementById('chat-input');
-      var chatSend = document.getElementById('chat-send');
-      var chatMessages = document.getElementById('chat-messages');
-
-      bubble.addEventListener('click', function() {
-        document.body.classList.add('chat-open');
-        setTimeout(function() { chatInput.focus(); }, 400);
-      });
-
-      chatClose.addEventListener('click', function() {
-        document.body.classList.remove('chat-open');
-      });
-
-      // ── Send message ──
-      function sendMessage() {
-        var text = chatInput.value.trim();
-        if (!text) return;
-
-        var userMsg = document.createElement('div');
-        userMsg.className = 'chat-msg user';
-        userMsg.textContent = text;
-        chatMessages.appendChild(userMsg);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-
-        vscode.postMessage({ type: 'agent-message', text: text });
-
-        // Streaming response placeholder (NOT "Thinking...")
-        var agentMsg = document.createElement('div');
-        agentMsg.className = 'chat-msg agent';
-        agentMsg.id = 'streaming-response';
-        agentMsg.textContent = '';
-        agentMsg.style.opacity = '0.6';
-        chatMessages.appendChild(agentMsg);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        document.getElementById('image-title').textContent = msg.title || '';
+        document.getElementById('image-credit').textContent = msg.credit || '';
       }
 
-      chatSend.addEventListener('click', sendMessage);
-      chatInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
+      if (msg.type === 'agent-response-delta') {
+        var el = document.getElementById('streaming-response');
+        if (el) {
+          el.textContent = msg.text;
+          el.style.opacity = '1';
+          messages.scrollTop = messages.scrollHeight;
         }
-      });
+      }
 
-      // Auto-resize input
-      chatInput.addEventListener('input', function() {
-        chatInput.style.height = 'auto';
-        chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
-      });
-
-      // Also close on clicking the blurred background
-      document.getElementById('chat-overlay').addEventListener('click', function(e) {
-        if (e.target === this) {
-          document.body.classList.remove('chat-open');
+      if (msg.type === 'agent-response-done') {
+        var doneEl = document.getElementById('streaming-response');
+        if (doneEl) {
+          doneEl.id = '';
+          doneEl.textContent = msg.text || 'Done.';
+          doneEl.style.opacity = '1';
         }
-      });
+      }
+    });
 
-      // ── Tell host we're ready ──
-      vscode.postMessage({ type: 'ready' });
-    })();
+    // ── Activate chat mode ──
+    function activateChat() {
+      if (!isActive) {
+        isActive = true;
+        document.body.classList.add('chat-active');
+      }
+    }
+
+    function deactivateChat() {
+      // Only deactivate if no messages have been sent (empty conversation)
+      var userMessages = messages.querySelectorAll('.msg.user');
+      if (userMessages.length === 0) {
+        isActive = false;
+        document.body.classList.remove('chat-active');
+      }
+    }
+
+    // Focus pill → activate overlay
+    pillInput.addEventListener('focus', activateChat);
+
+    // Click on gaussian overlay (outside pill/messages) → deactivate
+    document.getElementById('gaussian-overlay').addEventListener('click', function(e) {
+      if (e.target === this) {
+        pillInput.blur();
+        deactivateChat();
+      }
+    });
+
+    // Escape key → deactivate
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && isActive) {
+        pillInput.blur();
+        deactivateChat();
+      }
+    });
+
+    // ── Send message ──
+    function sendMessage() {
+      var text = pillInput.value.trim();
+      if (!text) return;
+
+      activateChat();
+
+      // Remove hint if present
+      var hint = messages.querySelector('.msg.hint');
+      if (hint) hint.remove();
+
+      // User bubble
+      var userMsg = document.createElement('div');
+      userMsg.className = 'msg user';
+      userMsg.textContent = text;
+      messages.appendChild(userMsg);
+      messages.scrollTop = messages.scrollHeight;
+
+      pillInput.value = '';
+      pillInput.style.height = 'auto';
+
+      // Send to agent
+      vscode.postMessage({ type: 'agent-message', text: text });
+
+      // Streaming placeholder
+      var agentMsg = document.createElement('div');
+      agentMsg.className = 'msg agent';
+      agentMsg.id = 'streaming-response';
+      agentMsg.style.opacity = '0.5';
+      agentMsg.textContent = '';
+      messages.appendChild(agentMsg);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    pillSend.addEventListener('click', sendMessage);
+    pillInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Auto-resize pill input
+    pillInput.addEventListener('input', function() {
+      pillInput.style.height = 'auto';
+      pillInput.style.height = Math.min(pillInput.scrollHeight, 120) + 'px';
+    });
+
+    // ── Init ──
+    vscode.postMessage({ type: 'ready' });
+  })();
   </script>
 </body>
 </html>`;

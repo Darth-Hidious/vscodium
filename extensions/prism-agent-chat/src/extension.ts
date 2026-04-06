@@ -89,6 +89,9 @@ export function activate(context: vscode.ExtensionContext): PrismAgentApi {
     }),
   );
 
+  // Auto-start the agent backend on IDE launch
+  client.connect();
+
   // Clean up
   context.subscriptions.push({ dispose: () => client.dispose() });
 
