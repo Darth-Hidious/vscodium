@@ -1,4 +1,16 @@
 {
+  "nameShort": "PRISM Desktop",
+  "nameLong": "PRISM Desktop — Materials Intelligence IDE",
+  "applicationName": "prism-desktop",
+  "dataFolderName": ".prism-desktop",
+  "win32MutexName": "prismdesktop",
+  "licenseName": "MARC27 Source-Available License",
+  "licenseUrl": "https://marc27.com/license",
+  "win32DirName": "PRISM Desktop",
+  "win32NameVersion": "PRISM Desktop",
+  "darwinBundleIdentifier": "com.marc27.prism-desktop",
+  "reportIssueUrl": "https://github.com/Darth-Hidious/vscodium/issues",
+  "urlProtocol": "prism-desktop",
   "extensionAllowedBadgeProviders": [
     "api.bintray.com",
     "api.travis-ci.com",
