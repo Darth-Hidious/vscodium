@@ -64,6 +64,19 @@
       {
         "command": "prism.agent.askAboutFile",
         "title": "PRISM: Ask Agent About This File"
+      },
+      {
+        "command": "prism.agent.sendMessage",
+        "title": "PRISM: Send Message to Agent"
+      },
+      {
+        "command": "prism.agent.sendContext",
+        "title": "PRISM: Send Context to Agent"
+      },
+      {
+        "command": "prism.agent.openFloatingChat",
+        "title": "PRISM: Open Agent Chat",
+        "icon": "$(comment-discussion)"
       }
     ],
     "menus": {
@@ -94,11 +107,6 @@
     "configuration": {
       "title": "PRISM Agent",
       "properties": {
-        "prism.agent.serverUrl": {
-          "type": "string",
-          "default": "ws://127.0.0.1:3100/ws/agent",
-          "description": "WebSocket URL for the PRISM agent server"
-        },
         "prism.agent.autoApprove": {
           "type": "boolean",
           "default": false,

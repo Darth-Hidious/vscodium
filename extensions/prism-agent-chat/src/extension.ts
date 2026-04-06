@@ -2,10 +2,11 @@ import * as vscode from 'vscode';
 import { AgentClient } from './agentClient';
 import { ChatPanelProvider } from './chatPanel';
 import { FloatingChatPanel } from './floatingChat';
+import type { PrismAgentApi } from './api';
 
 let client: AgentClient;
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): PrismAgentApi {
   client = new AgentClient();
   const chatProvider = new ChatPanelProvider(context.extensionUri, client);
 
@@ -71,10 +72,38 @@ export function activate(context: vscode.ExtensionContext): void {
         `What does the file ${fileName} do? Here's its content:\n\`\`\`\n${editor.document.getText()}\n\`\`\``,
       );
     }),
+
+    vscode.commands.registerCommand('prism.agent.sendMessage', (text: string) => {
+      if (typeof text === 'string' && text.trim()) {
+        client.connect();
+        client.sendMessage(text);
+      }
+    }),
+
+    vscode.commands.registerCommand('prism.agent.sendContext', (text: string) => {
+      if (typeof text === 'string' && text.trim()) {
+        client.connect();
+        FloatingChatPanel.createOrShow(context.extensionUri, client);
+        FloatingChatPanel.sendContextMessage(text);
+      }
+    }),
   );
 
   // Clean up
   context.subscriptions.push({ dispose: () => client.dispose() });
+
+  // Public API for other PRISM extensions
+  const api: PrismAgentApi = {
+    sendMessage: (text: string) => {
+      client.connect();
+      client.sendMessage(text);
+    },
+    onEvent: client.onEvent,
+    onStateChange: client.onStateChange,
+    get state() { return client.state; },
+    ensureConnected: () => client.connect(),
+  };
+  return api;
 }
 
 export function deactivate(): void {
