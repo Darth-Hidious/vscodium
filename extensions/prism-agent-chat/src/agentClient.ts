@@ -168,36 +168,32 @@ export class AgentClient {
 
 	private _findPrismBinary(callback: (path: string | null) => void): void {
 		const home = process.env['HOME'] || process.env['USERPROFILE'] || '';
+
+		// Look inside the app bundle first (bundled binary), then system locations
 		const candidates = [
+			// Bundled inside the .app — this is the primary location
+			`${process.execPath.replace(/\/[^/]+$/, '/../Resources/prism-bin/prism')}`,
+			// Fallback to system installations
 			`${home}/.prism/bin/prism`,
 			`${home}/.cargo/bin/prism`,
 			'/usr/local/bin/prism',
 			'/opt/homebrew/bin/prism',
 		];
 
-		// Try `which prism` first (safe — no user input)
-		execFile('/usr/bin/which', ['prism'], { timeout: 3000 }, (err, stdout) => {
-			if (!err && stdout.trim()) {
-				callback(stdout.trim().split('\n')[0]);
+		const tryNext = (i: number) => {
+			if (i >= candidates.length) {
+				callback(null);
 				return;
 			}
-
-			// Check common locations
-			const tryNext = (i: number) => {
-				if (i >= candidates.length) {
-					callback(null);
-					return;
+			execFile('/usr/bin/test', ['-x', candidates[i]], { timeout: 1000 }, (testErr) => {
+				if (!testErr) {
+					callback(candidates[i]);
+				} else {
+					tryNext(i + 1);
 				}
-				execFile('/usr/bin/test', ['-x', candidates[i]], { timeout: 1000 }, (testErr) => {
-					if (!testErr) {
-						callback(candidates[i]);
-					} else {
-						tryNext(i + 1);
-					}
-				});
-			};
-			tryNext(0);
-		});
+			});
+		};
+		tryNext(0);
 	}
 
 	private setState(state: ConnectionState): void {
