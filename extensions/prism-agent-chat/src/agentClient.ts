@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { execFile, spawn, ChildProcess } from 'child_process';
 import type { AgentEvent, ConnectionState } from './types';
 
@@ -183,20 +184,18 @@ export class AgentClient {
 			'/opt/homebrew/bin/prism',
 		];
 
-		const tryNext = (i: number) => {
-			if (i >= candidates.length) {
-				callback(null);
+		// Use fs.access instead of execFile('/usr/bin/test') — the app name
+		// contains Unicode (em dash) which breaks shell commands.
+		for (const candidate of candidates) {
+			try {
+				fs.accessSync(candidate, fs.constants.X_OK);
+				callback(candidate);
 				return;
+			} catch {
+				continue;
 			}
-			execFile('/usr/bin/test', ['-x', candidates[i]], { timeout: 1000 }, (testErr) => {
-				if (!testErr) {
-					callback(candidates[i]);
-				} else {
-					tryNext(i + 1);
-				}
-			});
-		};
-		tryNext(0);
+		}
+		callback(null);
 	}
 
 	private setState(state: ConnectionState): void {
