@@ -2,81 +2,52 @@ import * as vscode from 'vscode';
 import { AuthService } from './authService';
 
 let authService: AuthService;
+let statusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext): void {
-  authService = new AuthService(context);
+  authService = new AuthService();
 
-  // Status bar — shows login state
-  const statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right, 999,
-  );
-  statusBarItem.command = 'prism.auth.login';
+  statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 999);
   context.subscriptions.push(statusBarItem);
-
-  function updateStatusBar(): void {
-    const session = authService.getSession();
-    if (session) {
-      statusBarItem.text = '$(account) ' + session.username;
-      statusBarItem.tooltip = `Signed in as ${session.username} (${session.email})\nClick to manage account`;
-      statusBarItem.command = 'prism.auth.status';
-    } else {
-      statusBarItem.text = '$(sign-in) Sign in to MARC27';
-      statusBarItem.tooltip = 'Sign in to access marketplace, mesh, and billing';
-      statusBarItem.command = 'prism.auth.login';
-    }
-    statusBarItem.show();
-  }
-
   updateStatusBar();
+
   authService.onSessionChange(() => updateStatusBar());
 
-  // Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('prism.auth.login', async () => {
-      await authService.login();
-    }),
-
-    vscode.commands.registerCommand('prism.auth.logout', async () => {
-      await authService.logout();
-      vscode.window.showInformationMessage('Signed out of MARC27.');
-    }),
-
-    vscode.commands.registerCommand('prism.auth.status', async () => {
+    vscode.commands.registerCommand('prism.auth.login', () => authService.login()),
+    vscode.commands.registerCommand('prism.auth.logout', () => authService.logout()),
+    vscode.commands.registerCommand('prism.auth.status', () => {
       const session = authService.getSession();
-      if (!session) {
-        const action = await vscode.window.showInformationMessage(
-          'Not signed in to MARC27.',
-          'Sign In',
+      if (session) {
+        vscode.window.showInformationMessage(
+          `Signed in as ${session.username}${session.org ? ' (' + session.org + ')' : ''}`
         );
-        if (action === 'Sign In') {
-          await authService.login();
-        }
-        return;
-      }
-
-      const action = await vscode.window.showInformationMessage(
-        `Signed in as ${session.username} (${session.email})\nOrg: ${session.org || 'Personal'}`,
-        'Sign Out',
-      );
-      if (action === 'Sign Out') {
-        await authService.logout();
+      } else {
+        vscode.window.showInformationMessage('Not signed in. Run `prism login` to authenticate.');
       }
     }),
+    vscode.commands.registerCommand('prism.auth.refresh', () => authService.refresh()),
+    { dispose: () => authService.dispose() },
   );
 
-  // Prompt login on first startup if not authenticated
-  if (!authService.getSession()) {
-    globalThis.setTimeout(async () => {
-      const action = await vscode.window.showInformationMessage(
-        'Sign in to MARC27 to access the marketplace, mesh computing, and billing.',
-        'Sign In',
-        'Later',
-      );
-      if (action === 'Sign In') {
-        await authService.login();
-      }
-    }, 2000);
-  }
+  const refreshTimer = setInterval(() => authService.refresh(), 60000);
+  context.subscriptions.push({ dispose: () => clearInterval(refreshTimer) });
 }
 
-export function deactivate(): void {}
+function updateStatusBar(): void {
+  const session = authService.getSession();
+  if (session) {
+    statusBarItem.text = `$(account) ${session.username}`;
+    statusBarItem.tooltip = `Signed in as ${session.username}${session.org ? '\nOrg: ' + session.org : ''}`;
+    statusBarItem.command = 'prism.auth.status';
+  } else {
+    statusBarItem.text = '$(sign-in) Sign in';
+    statusBarItem.tooltip = 'Sign in to MARC27';
+    statusBarItem.command = 'prism.auth.login';
+  }
+  statusBarItem.show();
+}
+
+export function deactivate(): void {
+  authService?.dispose();
+}

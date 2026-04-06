@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface AuthSession {
   accessToken: string;
@@ -9,172 +11,108 @@ export interface AuthSession {
   expiresAt: number;
 }
 
-interface DeviceCodeResponse {
-  device_code: string;
-  user_code: string;
-  verification_uri: string;
-  expires_in: number;
-  interval: number;
-}
-
-interface TokenResponse {
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  error?: string;
-}
-
-interface UserInfoResponse {
-  username?: string;
-  name?: string;
-  email?: string;
-  org?: { name: string };
+interface CliState {
+  credentials?: {
+    access_token: string;
+    refresh_token: string;
+    platform_url: string;
+    user_id?: string;
+    display_name?: string;
+    org_id?: string;
+    org_name?: string;
+    expires_at?: string;
+  };
 }
 
 /**
- * MARC27 Platform authentication using device-flow OAuth.
- * Same flow as `prism login` in the CLI (prism-client crate).
+ * Reads PRISM CLI credentials from cli-state.json.
+ * Users authenticate once via `prism login` — this extension just reads
+ * that state. No separate OAuth flow, no duplicate credentials.
  */
 export class AuthService {
-  private static readonly SESSION_KEY = 'prism.auth.session';
   private session: AuthSession | null = null;
-  private readonly context: vscode.ExtensionContext;
 
   private readonly _onSessionChange = new vscode.EventEmitter<AuthSession | null>();
   readonly onSessionChange = this._onSessionChange.event;
 
-  constructor(context: vscode.ExtensionContext) {
-    this.context = context;
-    this.loadSession();
+  constructor() {
+    this.refresh();
   }
 
   getSession(): AuthSession | null {
-    if (this.session && this.session.expiresAt < Date.now()) {
-      this.session = null;
-      this.saveSession();
-    }
     return this.session;
   }
 
+  async refresh(): Promise<void> {
+    const prev = this.session;
+    this.session = await this._readCliState();
+    if (prev?.accessToken !== this.session?.accessToken) {
+      this._onSessionChange.fire(this.session);
+    }
+  }
+
   async login(): Promise<void> {
-    const config = vscode.workspace.getConfiguration('prism.auth');
-    const platformUrl = config.get<string>('platformUrl', 'https://api.marc27.com/api/v1');
-
-    try {
-      // Step 1: Request device code
-      const deviceResp = await this.doPost<DeviceCodeResponse>(`${platformUrl}/oauth/device/code`, {
-        client_id: 'prism-desktop',
-        scope: 'read write marketplace mesh billing',
-      });
-
-      // Step 2: Show code to user + open browser
-      const opened = await vscode.env.openExternal(vscode.Uri.parse(deviceResp.verification_uri));
-
-      const action = await vscode.window.showInformationMessage(
-        `Enter code: ${deviceResp.user_code}`,
-        { modal: true, detail: `Your sign-in code is:\n\n${deviceResp.user_code}\n\n${opened ? 'A browser window has opened.' : 'Go to: ' + deviceResp.verification_uri}\nEnter the code above to complete sign-in.` },
-        'Done',
-        'Cancel',
-      );
-
-      if (action !== 'Done') { return; }
-
-      // Step 3: Poll for token
-      await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'Signing in to MARC27...' },
-        async () => {
-          const pollInterval = (deviceResp.interval || 5) * 1000;
-          const deadline = Date.now() + (deviceResp.expires_in || 900) * 1000;
-
-          while (Date.now() < deadline) {
-            await sleep(pollInterval);
-            try {
-              const tokenResp = await this.doPost<TokenResponse>(`${platformUrl}/oauth/token`, {
-                grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-                client_id: 'prism-desktop',
-                device_code: deviceResp.device_code,
-              });
-
-              if (tokenResp.access_token) {
-                const userInfo = await this.doGet<UserInfoResponse>(
-                  `${platformUrl}/api/v1/me`,
-                  tokenResp.access_token,
-                );
-
-                this.session = {
-                  accessToken: tokenResp.access_token,
-                  refreshToken: tokenResp.refresh_token || '',
-                  username: userInfo.username || userInfo.name || 'User',
-                  email: userInfo.email || '',
-                  org: userInfo.org?.name,
-                  expiresAt: Date.now() + (tokenResp.expires_in || 3600) * 1000,
-                };
-                await this.saveSession();
-                this._onSessionChange.fire(this.session);
-                vscode.window.showInformationMessage(`Signed in as ${this.session.username}`);
-                return;
-              }
-            } catch (e: unknown) {
-              const err = e as { error?: string };
-              if (err.error === 'authorization_pending' || err.error === 'slow_down') {
-                continue;
-              }
-              throw e;
-            }
-          }
-          vscode.window.showErrorMessage('Sign-in timed out. Please try again.');
-        },
-      );
-    } catch (err) {
-      vscode.window.showErrorMessage(`Sign-in failed: ${err}`);
+    const action = await vscode.window.showInformationMessage(
+      'Sign in to MARC27 via the PRISM CLI.',
+      { detail: 'This will open a terminal. Run `prism login` and follow the prompts.' },
+      'Open Terminal',
+    );
+    if (action === 'Open Terminal') {
+      const terminal = vscode.window.createTerminal('PRISM Login');
+      terminal.show();
+      terminal.sendText('prism login');
+      const poll = setInterval(async () => {
+        await this.refresh();
+        if (this.session) {
+          clearInterval(poll);
+          vscode.window.showInformationMessage(`Signed in as ${this.session.username}`);
+        }
+      }, 3000);
+      setTimeout(() => clearInterval(poll), 300000);
     }
   }
 
   async logout(): Promise<void> {
+    const terminal = vscode.window.createTerminal('PRISM Logout');
+    terminal.show();
+    terminal.sendText('prism logout');
     this.session = null;
-    await this.saveSession();
     this._onSessionChange.fire(null);
   }
 
-  private async loadSession(): Promise<void> {
-    const stored = await this.context.secrets.get(AuthService.SESSION_KEY);
-    if (stored) {
+  private async _readCliState(): Promise<AuthSession | null> {
+    const home = process.env['HOME'] || process.env['USERPROFILE'] || '';
+    if (!home) { return null; }
+
+    const paths = [
+      path.join(home, 'Library', 'Application Support', 'com.marc27.prism', 'cli-state.json'),
+      path.join(home, '.config', 'prism', 'cli-state.json'),
+      path.join(home, '.prism', 'cli-state.json'),
+    ];
+
+    for (const p of paths) {
       try {
-        this.session = JSON.parse(stored);
+        const content = fs.readFileSync(p, 'utf-8');
+        const state: CliState = JSON.parse(content);
+        if (state.credentials?.access_token) {
+          const creds = state.credentials;
+          return {
+            accessToken: creds.access_token,
+            refreshToken: creds.refresh_token,
+            username: creds.display_name || 'User',
+            email: '',
+            org: creds.org_name,
+            expiresAt: creds.expires_at ? new Date(creds.expires_at).getTime() : Date.now() + 86400000,
+          };
+        }
       } catch {
-        this.session = null;
+        continue;
       }
     }
+    return null;
   }
 
-  private async saveSession(): Promise<void> {
-    if (this.session) {
-      await this.context.secrets.store(AuthService.SESSION_KEY, JSON.stringify(this.session));
-    } else {
-      await this.context.secrets.delete(AuthService.SESSION_KEY);
-    }
+  dispose(): void {
+    this._onSessionChange.dispose();
   }
-
-  private async doPost<T>(url: string, body: Record<string, unknown>): Promise<T> {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'PRISM/0.1.0' },
-      body: JSON.stringify(body),
-    });
-    const json = await resp.json();
-    if (!resp.ok) { throw json; }
-    return json as T;
-  }
-
-  private async doGet<T>(url: string, token: string): Promise<T> {
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'PRISM/0.1.0' },
-    });
-    return await resp.json() as T;
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => globalThis.setTimeout(r, ms));
 }
