@@ -170,10 +170,10 @@ export class AgentClient {
 	private _findPrismBinary(callback: (binPath: string | null) => void): void {
 		const home = process.env['HOME'] || process.env['USERPROFILE'] || '';
 
-		// On macOS, vscode.env.appRoot gives us the app's Resources/app directory.
-		// The bundled binary is at Resources/prism-bin/prism (sibling of app/).
-		const appRoot = vscode.env.appRoot; // e.g. .../PRISM Desktop.app/Contents/Resources/app
-		const bundledBin = path.resolve(appRoot, '..', 'prism-bin', 'prism');
+		// This file lives at .../Resources/app/extensions/prism-agent-chat/out/agentClient.js
+		// The bundled binary is at .../Resources/prism-bin/prism
+		// So from __dirname (out/), go up 4 levels to Resources/, then into prism-bin/
+		const bundledBin = path.resolve(__dirname, '..', '..', '..', '..', 'prism-bin', 'prism');
 
 		const candidates = [
 			bundledBin,
