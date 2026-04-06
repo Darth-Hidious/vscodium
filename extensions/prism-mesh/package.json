@@ -96,7 +96,7 @@
       "properties": {
         "prism.mesh.serverUrl": {
           "type": "string",
-          "default": "http://127.0.0.1:3100",
+          "default": "http://127.0.0.1:7327",
           "description": "PRISM server URL for mesh API"
         }
       }
