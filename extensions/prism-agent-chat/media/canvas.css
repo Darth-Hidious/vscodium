@@ -290,3 +290,61 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--prism-dim); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--prism-fg); }
+
+/* ── PRISM canvas identity ── */
+
+:root {
+  --prism-accent: #fbbf24;
+  --prism-accent-dim: rgba(251, 191, 36, 0.15);
+  --prism-accent-glow: rgba(251, 191, 36, 0.08);
+  --prism-surface: rgba(255, 255, 255, 0.04);
+  --prism-border: rgba(255, 255, 255, 0.08);
+}
+
+body {
+  background: var(--vscode-editor-background);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--prism-border);
+  background: var(--prism-surface);
+  flex-shrink: 0;
+}
+
+#header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#prism-logo {
+  font-size: 20px;
+  color: var(--prism-accent);
+}
+
+#header-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+}
+
+#header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+#input-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--prism-border);
+  background: var(--prism-surface);
+}

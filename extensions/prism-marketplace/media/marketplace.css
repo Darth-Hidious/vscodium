@@ -302,3 +302,43 @@ body {
 .results-grid::-webkit-scrollbar-thumb:hover {
 	background: var(--vscode-scrollbarSlider-hoverBackground);
 }
+
+/* ── PRISM marketplace polish ── */
+
+.marketplace-card {
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.marketplace-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.card-name {
+  color: #fbbf24;
+}
+
+.install-btn {
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.install-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.category-tab.active {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+#search-input {
+  border-radius: 8px;
+}
+
+#search-input:focus {
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.1);
+}
